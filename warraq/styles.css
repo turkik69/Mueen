@@ -305,7 +305,13 @@ a{text-underline-offset:3px}
 }
 
 @media (display-mode: standalone){
-  .warraq-header{padding-top:max(env(safe-area-inset-top), 12px)}
+  .warraq-header{
+    padding-top:8px;
+    top:0;
+  }
+  .warraq-app{
+    padding-top:0;
+  }
 }
 
 
@@ -1143,5 +1149,19 @@ a{text-underline-offset:3px}
   .warraq-header .warraq-container{
     transform:none !important;
     -webkit-transform:none !important;
+  }
+}
+
+@media (display-mode: standalone){
+  html,body,#root,.warraq-app{
+    background:#F7F3EC;
+  }
+  body{
+    min-height:100dvh;
+  }
+  .warraq-header{
+    position:sticky;
+    background:#0B342C !important;
+    box-shadow:0 8px 24px rgba(8,42,36,.16);
   }
 }
