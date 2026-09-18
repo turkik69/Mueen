@@ -65,6 +65,8 @@ a{text-underline-offset:3px}
 .warraq-main{padding-bottom:7.5rem}
 
 .warraq-header{
+  top:0;
+  padding-top:max(env(safe-area-inset-top), 8px);
   border-bottom:1px solid rgba(255,255,255,.08);
   box-shadow:0 10px 35px rgba(8,42,36,.14);
   backdrop-filter:saturate(150%) blur(12px);
@@ -290,4 +292,8 @@ a{text-underline-offset:3px}
   .auth-view{max-width:38rem}
   .listing-view{max-width:64rem}
   .admin-view{padding-inline:0}
+}
+
+@media (display-mode: standalone){
+  .warraq-header{padding-top:max(env(safe-area-inset-top), 12px)}
 }
