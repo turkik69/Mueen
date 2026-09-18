@@ -79,7 +79,6 @@ a{text-underline-offset:3px}
   opacity:1 !important;
   isolation:isolate;
   will-change:auto;
-  contain:paint;
 }
 .warraq-header button{outline:none}
 .warraq-header button:focus-visible{box-shadow:0 0 0 3px rgba(225,184,102,.32)}
