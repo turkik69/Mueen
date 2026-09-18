@@ -297,3 +297,95 @@ a{text-underline-offset:3px}
 @media (display-mode: standalone){
   .warraq-header{padding-top:max(env(safe-area-inset-top), 12px)}
 }
+
+
+/* Warraq visual refinement v2 */
+.brand-mark{
+  box-shadow:0 10px 24px rgba(193,138,61,.24), inset 0 0 0 1px rgba(255,255,255,.24);
+}
+.header-icon-btn{
+  background:rgba(255,255,255,.11)!important;
+  border:1px solid rgba(255,255,255,.10);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
+}
+.header-icon-btn:hover{
+  background:rgba(255,255,255,.16)!important;
+}
+.search-toolbar{
+  border-radius:22px;
+}
+.search-toolbar>div:first-child{
+  border-radius:20px!important;
+  background:rgba(255,255,255,.96)!important;
+  border-color:rgba(18,59,51,.09)!important;
+}
+.filter-btn{
+  border-color:rgba(18,59,51,.10)!important;
+  background:rgba(255,255,255,.96)!important;
+}
+.book-card{
+  position:relative;
+  border-radius:24px!important;
+  overflow:hidden;
+}
+.book-card::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  pointer-events:none;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.48);
+}
+.book-card-body{
+  background:linear-gradient(180deg,#fff 0%,#FCFAF6 100%);
+}
+.book-card h3{
+  font-size:16px!important;
+  letter-spacing:-.01em;
+}
+.book-card-media{
+  background-size:cover!important;
+  background-position:center!important;
+}
+.nav-item{
+  min-width:84px;
+  padding:8px 16px!important;
+}
+.nav-item svg{
+  filter:drop-shadow(0 2px 8px rgba(0,0,0,.12));
+}
+.warraq-bottomnav{
+  min-height:72px;
+  padding:8px 10px!important;
+  border-radius:26px!important;
+}
+.warraq-bottomnav .nav-item{
+  border:1px solid transparent;
+}
+.warraq-bottomnav .nav-item[style*="background"]{
+  border-color:rgba(225,184,102,.18);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.03);
+}
+.home-view>div:first-child{
+  margin-bottom:24px!important;
+}
+.warraq-hero{
+  background-image:
+    linear-gradient(135deg,rgba(255,255,255,.02),rgba(255,255,255,0)),
+    radial-gradient(circle at 75% 35%,rgba(225,184,102,.13),transparent 30%);
+}
+.warraq-hero button{
+  box-shadow:0 10px 28px rgba(193,138,61,.24);
+}
+.content-view>.bg-white,
+.auth-view>.bg-white{
+  box-shadow:var(--shadow-sm);
+}
+@media (max-width:767px){
+  .warraq-header .warraq-container{padding-top:8px!important;padding-bottom:10px!important}
+  .brand-mark{width:40px!important;height:40px!important}
+  .header-icon-btn{width:40px!important;height:40px!important}
+  .book-card{min-height:144px}
+  .book-card-media{width:122px!important;min-height:144px}
+  .book-card-body{padding:16px!important}
+}
