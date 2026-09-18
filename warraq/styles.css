@@ -1703,3 +1703,43 @@ body{
     height:144px;
   }
 }
+
+
+/* Registration identity fields */
+.phone-field-v3{
+  direction:ltr;
+}
+.phone-prefix-v3{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:52px;
+  height:32px;
+  padding:0 8px;
+  border-radius:10px;
+  background:#F2E9DB;
+  color:var(--forest);
+  font-family:var(--display-font);
+  font-size:10px;
+  font-weight:800;
+  border:1px solid rgba(27,48,42,.07);
+}
+.signup-trust-v3{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin:12px 0 4px;
+}
+.signup-trust-v3 span{
+  display:inline-flex;
+  align-items:center;
+  min-height:26px;
+  padding:0 8px;
+  border-radius:999px;
+  background:#EBF2EE;
+  color:var(--forest);
+  border:1px solid rgba(13,70,58,.10);
+  font-family:var(--display-font);
+  font-size:8px;
+  font-weight:700;
+}
