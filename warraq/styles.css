@@ -66,10 +66,20 @@ a{text-underline-offset:3px}
 
 .warraq-header{
   top:0;
+  z-index:60;
   padding-top:max(env(safe-area-inset-top), 8px);
   border-bottom:1px solid rgba(255,255,255,.08);
-  box-shadow:0 10px 35px rgba(8,42,36,.14);
-  backdrop-filter:saturate(150%) blur(12px);
+  box-shadow:0 10px 28px rgba(8,42,36,.16);
+  background:#0B342C !important;
+  -webkit-backdrop-filter:none !important;
+  backdrop-filter:none !important;
+  filter:none !important;
+  transform:none !important;
+  -webkit-transform:none !important;
+  opacity:1 !important;
+  isolation:isolate;
+  will-change:auto;
+  contain:paint;
 }
 .warraq-header button{outline:none}
 .warraq-header button:focus-visible{box-shadow:0 0 0 3px rgba(225,184,102,.32)}
@@ -1102,5 +1112,36 @@ a{text-underline-offset:3px}
   }
   .seller-v3{
     max-width:50rem!important;
+  }
+}
+
+/* iOS Safari sharp-header guard */
+.warraq-header,
+.warraq-header *,
+.warraq-header *::before,
+.warraq-header *::after{
+  -webkit-filter:none !important;
+  filter:none !important;
+  -webkit-backdrop-filter:none !important;
+  backdrop-filter:none !important;
+  text-shadow:none;
+}
+.warraq-header .warraq-container{
+  position:relative;
+  z-index:2;
+  transform:translateZ(0);
+  -webkit-font-smoothing:antialiased;
+}
+@supports (-webkit-touch-callout:none){
+  .warraq-header{
+    position:sticky;
+    background:#0B342C !important;
+    transform:none !important;
+    -webkit-transform:none !important;
+    perspective:none !important;
+  }
+  .warraq-header .warraq-container{
+    transform:none !important;
+    -webkit-transform:none !important;
   }
 }
