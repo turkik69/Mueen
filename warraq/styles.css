@@ -2054,3 +2054,148 @@ html, body, #root, .warraq-app{
   .report-case-overlay-v3{align-items:center;padding:28px}
   .report-case-modal-v3{border-radius:26px;max-height:88vh}
 }
+
+
+/* Admin report case details v4 */
+.admin-report-card-clickable-v4{
+  cursor:pointer;
+  transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;
+}
+.admin-report-card-clickable-v4:hover{
+  transform:translateY(-1px);
+  border-color:rgba(210,160,74,.28)!important;
+  box-shadow:var(--shadow-md)!important;
+}
+.admin-report-card-clickable-v4:focus-visible{
+  outline:none;
+  box-shadow:0 0 0 4px rgba(210,160,74,.13),var(--shadow-md)!important;
+}
+.report-parties-grid-v4{
+  gap:12px!important;
+}
+.report-party-card-v4{
+  padding:14px!important;
+  border-radius:18px;
+  background:linear-gradient(180deg,#FFFDF9,#F9F4EB);
+  border:1px solid rgba(27,48,42,.08);
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.report-party-card-v4.reporter{
+  border-right:4px solid var(--forest);
+}
+.report-party-card-v4.reported{
+  border-right:4px solid var(--clay);
+}
+.report-party-head-v4{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:3px;
+}
+.report-party-head-v4 strong{
+  color:var(--forest);
+  font-family:var(--display-font);
+  font-size:12px;
+}
+.report-party-badge-v4{
+  width:max-content;
+  padding:4px 8px;
+  border-radius:999px;
+  background:#F2E9DC;
+  color:var(--brass)!important;
+  font-family:var(--display-font);
+  font-size:8px!important;
+  font-weight:700;
+}
+.report-party-card-v4 small{
+  color:var(--muted);
+  font-size:9px;
+}
+.report-party-conversation-v4{
+  margin-top:14px;
+  padding:15px;
+  border-radius:20px;
+  background:linear-gradient(180deg,#F8F3E9,#FFFDF9);
+  border:1px solid rgba(27,48,42,.08);
+}
+.report-party-thread-v4{
+  margin-top:10px;
+  max-height:360px;
+  overflow-y:auto;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  padding-left:2px;
+}
+.party-message-v4{
+  max-width:86%;
+  padding:10px 12px;
+  border-radius:15px;
+  border:1px solid rgba(27,48,42,.08);
+  box-shadow:var(--shadow-xs);
+}
+.party-message-v4.reporter-msg{
+  align-self:flex-start;
+  background:#EEF4F1;
+  border-bottom-left-radius:5px;
+}
+.party-message-v4.reported-msg{
+  align-self:flex-end;
+  background:#FBEEE9;
+  border-bottom-right-radius:5px;
+}
+.party-message-sender-v4{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:4px;
+}
+.party-message-sender-v4 span{
+  font-family:var(--display-font);
+  font-size:8px;
+  font-weight:700;
+  color:var(--forest);
+}
+.party-message-v4.reported-msg .party-message-sender-v4 span{
+  color:var(--clay);
+}
+.party-message-sender-v4 small{
+  color:#929792;
+  font-size:7px;
+}
+.party-message-v4 p{
+  margin:0;
+  color:var(--ink);
+  font-size:10px;
+  line-height:1.75;
+  white-space:pre-wrap;
+  word-break:break-word;
+}
+.report-no-party-messages-v4{
+  padding:20px 12px;
+  text-align:center;
+  color:var(--muted);
+  border:1px dashed rgba(27,48,42,.13);
+  border-radius:15px;
+  background:rgba(255,255,255,.55);
+}
+.report-no-party-messages-v4 p{
+  margin:0;
+  font-size:10px;
+}
+
+@media (min-width:768px){
+  .report-parties-grid-v4{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  .report-parties-grid-v4 .wide{
+    grid-column:1/-1;
+  }
+  .party-message-v4{
+    max-width:72%;
+  }
+}
