@@ -1760,3 +1760,152 @@ html, body, #root, .warraq-app{
     font-size:16px !important;
   }
 }
+
+
+/* Admin report case management */
+.admin-reports-v2{margin-top:4px}
+.admin-report-card-v2{
+  background:linear-gradient(180deg,#FFFDF9,#FAF5EC);
+  border:1px solid rgba(27,48,42,.09);
+  border-radius:20px;
+  padding:16px;
+  box-shadow:0 12px 32px rgba(27,48,42,.065);
+}
+.admin-report-head-v2{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:13px;
+}
+.admin-report-kicker-v2{
+  display:block;
+  color:var(--brass);
+  font-family:var(--display-font);
+  font-size:9px;
+  font-weight:800;
+  margin-bottom:2px;
+}
+.admin-report-head-v2 h3{
+  margin:0;
+  color:var(--forest);
+  font-family:var(--display-font);
+  font-size:14px;
+  font-weight:800;
+}
+.admin-report-status-v2{
+  flex:none;
+  padding:6px 9px;
+  border-radius:999px;
+  font-family:var(--display-font);
+  font-size:8px;
+  font-weight:800;
+}
+.admin-report-status-v2.status-open{background:#FFF0DC;color:#A56A22}
+.admin-report-status-v2.status-reviewed{background:#E7F0EC;color:#376557}
+.admin-report-status-v2.status-resolved{background:#E5F1E8;color:#47745B}
+.admin-report-status-v2.status-dismissed{background:#F0ECE8;color:#76685D}
+
+.admin-report-grid-v2{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:9px;
+}
+.admin-report-panel-v2{
+  background:#FFF;
+  border:1px solid rgba(27,48,42,.07);
+  border-radius:15px;
+  padding:11px 12px;
+  min-width:0;
+}
+.admin-report-panel-v2 strong{
+  display:block;
+  color:var(--forest);
+  font-family:var(--display-font);
+  font-size:11px;
+  font-weight:800;
+}
+.admin-report-panel-v2 small{
+  display:block;
+  margin-top:2px;
+  color:#858B86;
+  font-size:9px;
+  line-height:1.5;
+}
+.admin-report-label-v2{
+  display:block;
+  margin-bottom:4px;
+  color:var(--brass);
+  font-family:var(--display-font);
+  font-size:8px;
+  font-weight:800;
+}
+.admin-report-detail-v2 p{
+  margin:0;
+  color:#59635E;
+  font-size:10px;
+  line-height:1.8;
+}
+.admin-report-note-v2{
+  margin-top:10px;
+  padding:11px 12px;
+  border-radius:15px;
+  background:#F6EFE4;
+  border-right:4px solid var(--brass);
+}
+.admin-report-note-v2 span{
+  color:var(--brass);
+  font-family:var(--display-font);
+  font-size:8px;
+  font-weight:800;
+}
+.admin-report-note-v2 p{
+  margin:3px 0 0;
+  color:var(--ink);
+  font-size:10px;
+  line-height:1.75;
+}
+.admin-report-actions-v2{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+  margin-top:12px;
+}
+.report-action-v2{
+  min-height:39px;
+  padding:0 9px;
+  border-radius:12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  font-family:var(--display-font);
+  font-size:9px;
+  font-weight:800;
+  border:1px solid transparent;
+}
+.report-action-v2.contact{background:#F2ECE2;color:var(--forest);border-color:rgba(27,48,42,.10)}
+.report-action-v2.review{background:#E7F0EC;color:#376557}
+.report-action-v2.resolve{background:var(--forest);color:#fff}
+.report-action-v2.dismiss{background:#F5E7E1;color:var(--clay)}
+.report-action-v2.reopen{background:#FFF0DC;color:#A56A22}
+.report-action-v2:disabled{opacity:.42;cursor:not-allowed}
+.admin-report-empty-v2{
+  padding:36px 18px;
+  text-align:center;
+  border-radius:18px;
+  border:1px dashed rgba(27,48,42,.16);
+  color:var(--muted);
+  background:rgba(255,253,248,.72);
+}
+.admin-report-empty-v2 p{margin:0;font-size:11px}
+
+@media (min-width:768px){
+  .admin-report-grid-v2{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .admin-report-detail-v2{grid-column:1/-1}
+  .admin-report-actions-v2{
+    grid-template-columns:repeat(4,minmax(0,1fr));
+  }
+}
