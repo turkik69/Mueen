@@ -21,8 +21,8 @@ function switchAuthTab(mode){const reg=mode==='register';$$('[data-auth-tab]').f
 $('#accountBtn').onclick=openAccount;
 $('#closeAccount').onclick=closeAccount;
 $('#accountDlg').addEventListener('click',e=>{if(e.target===$('#accountDlg'))closeAccount()});
-$('#loginSubmit').onclick=async()=>{try{await MueenFirebase.login($('#loginEmail').value.trim(),$('#loginPassword').value);toast('تم تسجيل الدخول ومزامنة بياناتك');closeAccount()}catch(e){console.error(e);toast('تعذر تسجيل الدخول. تحقق من البيانات وتفعيل Email/Password في Firebase')}};
-$('#registerSubmit').onclick=async()=>{try{await MueenFirebase.register($('#regName').value.trim(),$('#regEmail').value.trim(),$('#regPassword').value);toast('تم إنشاء حساب مُعين');closeAccount()}catch(e){console.error(e);toast('تعذر إنشاء الحساب. تأكد من تفعيل Email/Password في Firebase')}};
+$('#loginSubmit').onclick=async()=>{try{await MueenFirebase.login($('#loginEmail').value.trim(),$('#loginPassword').value);toast('تم تسجيل الدخول ومزامنة بياناتك');closeAccount()}catch(e){console.error(e);toast(e&&e.code?'خطأ: '+e.code:'تعذر تسجيل الدخول')}};
+$('#registerSubmit').onclick=async()=>{try{await MueenFirebase.register($('#regName').value.trim(),$('#regEmail').value.trim(),$('#regPassword').value);toast('تم إنشاء حساب مُعين');closeAccount()}catch(e){console.error(e);toast(e&&e.code?'خطأ: '+e.code:'تعذر إنشاء الحساب')}};
 $('#logoutBtn').onclick=async()=>{await MueenFirebase.logout();toast('تم تسجيل الخروج')};
 $('#resetPassword').onclick=async()=>{const email=$('#loginEmail').value.trim();if(!email)return toast('اكتب بريدك الإلكتروني أولًا');try{await MueenFirebase.reset(email);toast('تم إرسال رابط استعادة كلمة المرور')}catch(e){toast('تعذر إرسال رابط الاستعادة')}};
 $('#enablePush').onclick=async()=>{try{await MueenFirebase.enablePush();toast('تم تفعيل إشعارات مُعين على هذا الجهاز')}catch(e){toast(e.message==='LOGIN_REQUIRED'?'سجل الدخول أولًا':e.message==='VAPID_REQUIRED'?'المزامنة جاهزة، وبقي مفتاح Web Push لهذا المشروع':'تعذر تفعيل الإشعارات على هذا الجهاز')}};
