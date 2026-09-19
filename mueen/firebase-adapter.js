@@ -1,15 +1,14 @@
 (function(){
   const firebaseConfig={
-    apiKey:"AIzaSyBsnryD1ZtvjzumatCCVN-QpRAMR4_IG7M",
-    authDomain:"world-cup-2026-d3091.firebaseapp.com",
-    databaseURL:"https://world-cup-2026-d3091-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId:"world-cup-2026-d3091",
-    storageBucket:"world-cup-2026-d3091.firebasestorage.app",
-    messagingSenderId:"830204361101",
-    appId:"1:830204361101:web:f3a23c0fa41bb809d365c4",
-    measurementId:"G-4Y1R6PW3SL"
+    apiKey:"AIzaSyDZ5MYN5z1FiSVe9LoYXmER4NUUkW6C0us",
+    authDomain:"fitness-coach-21b40.firebaseapp.com",
+    databaseURL:"https://fitness-coach-21b40-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId:"fitness-coach-21b40",
+    storageBucket:"fitness-coach-21b40.firebasestorage.app",
+    messagingSenderId:"162393884721",
+    appId:"1:162393884721:web:d0d5768c827b997c322d10"
   };
-  const VAPID="BJ0U0e4v5iNhSHtKFRgqRF5MX9-9hWgV-cS2Drc75c9MCb0--JvP5LmqU4_JJn6RoIRwalaHnT-T46PE19XUaZM";
+  const VAPID="";
   let app,auth,db,messaging,currentUser=null,onRemote=null,started=false;
   const qs=s=>document.querySelector(s);
   function state(text,ok=false){const e=qs('#cloudState');if(e){e.textContent=text;e.dataset.ok=ok?'1':'0'}}
@@ -71,6 +70,7 @@
   async function enablePush(){
     if(!currentUser)throw new Error('LOGIN_REQUIRED');
     if(!messaging)throw new Error('NO_MESSAGING');
+    if(!VAPID)throw new Error('VAPID_REQUIRED');
     const permission=await Notification.requestPermission();
     if(permission!=='granted')throw new Error('DENIED');
     const reg=await navigator.serviceWorker.register('./firebase-messaging-sw.js',{scope:'./push/'});
