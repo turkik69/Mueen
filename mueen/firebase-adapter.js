@@ -73,7 +73,7 @@
     if(!messaging)throw new Error('NO_MESSAGING');
     const permission=await Notification.requestPermission();
     if(permission!=='granted')throw new Error('DENIED');
-    const reg=await navigator.serviceWorker.register('./firebase-messaging-sw.js');
+    const reg=await navigator.serviceWorker.register('./firebase-messaging-sw.js',{scope:'./push/'});
     const token=await messaging.getToken({vapidKey:VAPID,serviceWorkerRegistration:reg});
     await db.ref('mueen/users/'+currentUser.uid+'/pushTokens/'+encodeURIComponent(token)).set({token,updatedAt:Date.now(),platform:navigator.platform||'web'});
     return token;
