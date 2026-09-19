@@ -8,7 +8,7 @@
     messagingSenderId:"162393884721",
     appId:"1:162393884721:web:d0d5768c827b997c322d10"
   };
-  const VAPID="";
+  const VAPID="BNjMWTcjZfSpxlUl-Dstzh2n6LZqBCQRmvv-kXTYYESu_bjN2hE1IXkuyHu7jZIRXo3N2SkEp6N-yO77j64ku5g";
   let app,auth,db,messaging,currentUser=null,onRemote=null,started=false;
   const qs=s=>document.querySelector(s);
   function state(text,ok=false){const e=qs('#cloudState');if(e){e.textContent=text;e.dataset.ok=ok?'1':'0'}}
