@@ -82,7 +82,64 @@ function renderBrief(){
 }
 function scheduleLocalReminders(x){if(!x.date||!x.time||!x.reminders||!x.reminders.length||!('Notification'in window)||Notification.permission!=='granted')return;let eventTime=new Date(x.date+'T'+x.time+':00').getTime(),now=Date.now();x.reminders.forEach(min=>{let delay=eventTime-min*60000-now;if(delay>0&&delay<2147483647)setTimeout(()=>{try{new Notification('مُعين',{body:'تذكير: '+x.title,icon:'icon.svg'})}catch(e){}},delay)})}
 function natural(t,fromChat=false){if(!t.trim())return;let p=parse(t),x={id:uid(),...p,notes:'',priority:'normal',done:false,created:new Date().toISOString()};items.push(x);save();scheduleLocalReminders(x);let extra=p.reminders&&p.reminders.length?' — '+p.reminders.map(reminderLabel).join(' و '):'';let msg='تم. حفظت '+lab[p.type]+': «'+p.title+'»'+(p.date?' بتاريخ '+fmt(p.date):'')+(p.time?' الساعة '+p.time:'')+extra+'.';if(fromChat){chat.push({role:'user',text:t},{role:'assistant',text:msg});localStorage.setItem(C,JSON.stringify(chat));renderChat()}toast(msg)}$('#send').onclick=()=>{natural($('#quick').value);$('#quick').value=''};$('#quick').onkeydown=e=>{if(e.key==='Enter')$('#send').click()};$('#chatSend').onclick=()=>{natural($('#chat').value,true);$('#chat').value=''};$('#chat').onkeydown=e=>{if(e.key==='Enter')$('#chatSend').click()};
-function speech(target){let SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){toast('التعرف الصوتي غير متاح في هذا المتصفح');return}let r=new SR;r.lang='ar-OM';$('#speech').textContent='أسمعك…';$('#mic').classList.add('listening');r.onresult=e=>{let t=e.results[0][0].transcript;natural(t,target==='chat')};r.onend=()=>{$('#speech').textContent='جاهز';$('#mic').classList.remove('listening')};r.onerror=()=>toast('تعذر التقاط الصوت');r.start()}$('#mic').onclick=()=>speech('home');$('#chatMic').onclick=()=>speech('chat');$('#notify').onclick=async()=>{if(!('Notification'in window))return toast('الإشعارات غير مدعومة هنا');let p=await Notification.requestPermission();toast(p==='granted'?'تم تفعيل الإشعارات':'لم يتم منح الإذن')};if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+function speech(target){
+  let SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){toast('التعرف الصوتي غير مدعوم هنا. استخدم إملاء لوحة المفاتيح مؤقتًا');return}
+  let r=new SR(),finalText='',liveText='',finished=false,retried=false;
+  const input=target==='chat'?$('#chat'):$('#quick');
+  r.lang='ar-SA';
+  r.interimResults=true;
+  r.continuous=false;
+  r.maxAlternatives=3;
+  $('#speech').textContent='أسمعك…';
+  $('#mic').classList.add('listening');
+  if(input)input.value='';
+  r.onresult=e=>{
+    let interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const t=e.results[i][0].transcript.trim();
+      if(e.results[i].isFinal)finalText+=(finalText?' ':'')+t;
+      else interim+=(interim?' ':'')+t;
+    }
+    liveText=(finalText+' '+interim).trim();
+    if(input&&liveText)input.value=liveText;
+    $('#speech').textContent=liveText?'جاري الاستماع…':'أسمعك…';
+  };
+  r.onerror=e=>{
+    console.warn('speech error',e.error);
+    if(e.error==='network'&&!retried){
+      retried=true;
+      try{r.stop()}catch(_){}
+      setTimeout(()=>{
+        try{
+          let r2=new SR();r2.lang='ar';r2.interimResults=true;r2.continuous=false;r2.maxAlternatives=3;
+          r2.onresult=ev=>{let t='';for(let i=ev.resultIndex;i<ev.results.length;i++)t+=ev.results[i][0].transcript+' ';t=t.trim();if(t){finalText=t;if(input)input.value=t}};
+          r2.onend=()=>{if(finalText&&!finished){finished=true;natural(finalText,target==='chat');if(input)input.value=''}$('#speech').textContent='جاهز';$('#mic').classList.remove('listening')};
+          r2.onerror=()=>{toast('تعذر التعرف الصوتي في Safari. استخدم زر الإملاء في لوحة المفاتيح');$('#speech').textContent='جاهز';$('#mic').classList.remove('listening')};
+          r2.start();
+        }catch(_){toast('تعذر تشغيل التعرف الصوتي')}
+      },250);
+      return;
+    }
+    const msgs={
+      'no-speech':'لم أسمع كلامًا واضحًا. قرّب الهاتف وتحدث مرة أخرى',
+      'audio-capture':'تعذر الوصول للميكروفون',
+      'not-allowed':'اسمح للميكروفون من إعدادات Safari',
+      'service-not-allowed':'خدمة التعرف الصوتي غير مسموحة',
+      'aborted':'تم إيقاف الاستماع'
+    };
+    toast(msgs[e.error]||'تعذر التعرف على الكلام');
+  };
+  r.onend=()=>{
+    if(!retried){
+      const t=(finalText||liveText).trim();
+      if(t&&!finished){finished=true;natural(t,target==='chat');if(input)input.value=''}
+      $('#speech').textContent='جاهز';$('#mic').classList.remove('listening');
+    }
+  };
+  try{r.start()}catch(e){toast('تعذر بدء الاستماع. أعد المحاولة')}
+}
+$('#mic').onclick=()=>speech('home');$('#chatMic').onclick=()=>speech('chat');$('#notify').onclick=async()=>{if(!('Notification'in window))return toast('الإشعارات غير مدعومة هنا');let p=await Notification.requestPermission();toast(p==='granted'?'تم تفعيل الإشعارات':'لم يتم منح الإذن')};if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 function openAccount(){const d=$('#accountDlg');d.hidden=false;document.body.style.overflow='hidden'}
 function closeAccount(){const d=$('#accountDlg');d.hidden=true;document.body.style.overflow=''}
 function switchAuthTab(mode){const reg=mode==='register';$$('[data-auth-tab]').forEach(x=>x.classList.toggle('on',x.dataset.authTab===mode));$('#loginPane').hidden=reg;$('#registerPane').hidden=!reg}
