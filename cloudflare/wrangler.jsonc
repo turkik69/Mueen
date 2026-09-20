@@ -2,7 +2,9 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "mueen-reminders",
   "main": "src/index.js",
+  "keep_vars": true,
   "compatibility_date": "2026-09-20",
+  "compatibility_flags": ["nodejs_compat"],
   "triggers": {
     "crons": ["* * * * *"]
   },
