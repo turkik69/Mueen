@@ -143,6 +143,51 @@ async function ingestCommand(req,env){
   }
   return json({ok:true,item:{id,...parsed}});
 }
+
+function omanPartsFromMs(ms){
+  if(!ms)return {date:'',time:''};
+  const parts=new Intl.DateTimeFormat('en-CA',{
+    timeZone:'Asia/Muscat',year:'numeric',month:'2-digit',day:'2-digit',
+    hour:'2-digit',minute:'2-digit',hourCycle:'h23'
+  }).formatToParts(new Date(ms)).reduce((o,x)=>(o[x.type]=x.value,o),{});
+  return {
+    date:parts.year+'-'+parts.month+'-'+parts.day,
+    time:parts.hour+':'+parts.minute
+  };
+}
+async function listItems(req,env){
+  const body=await req.json().catch(()=>null);
+  if(!body||body.token!==env.MUEEN_TOKEN)return json({ok:false,error:'unauthorized'},401);
+
+  const rows=await env.DB.prepare(
+    `SELECT i.id,i.text,i.type,i.title,i.event_at,i.created_at,
+      GROUP_CONCAT(r.offset_minutes) AS offsets
+     FROM items i
+     LEFT JOIN reminders r ON r.item_id=i.id
+     GROUP BY i.id
+     ORDER BY i.created_at ASC`
+  ).all();
+
+  const items=(rows.results||[]).map(r=>{
+    const dt=omanPartsFromMs(Number(r.event_at)||0);
+    const reminders=r.offsets?String(r.offsets).split(',').map(Number).filter(Number.isFinite):[];
+    return {
+      id:r.id,
+      type:r.type||'task',
+      title:r.title||r.text||'',
+      notes:'',
+      date:dt.date,
+      time:dt.time,
+      priority:'normal',
+      reminders:[...new Set(reminders)],
+      done:false,
+      created:new Date(Number(r.created_at)||Date.now()).toISOString(),
+      source:'siri-cloudflare'
+    };
+  });
+  return json({ok:true,items});
+}
+
 async function subscribe(req,env){
   const body=await req.json().catch(()=>null);
   const s=body&&body.subscription;
@@ -217,6 +262,7 @@ export default {
     if(url.pathname==='/api/config'&&req.method==='GET')res=json({ok:true,vapidPublicKey:env.VAPID_PUBLIC_KEY});
     else if(url.pathname==='/api/command'&&req.method==='POST')res=await ingestCommand(req,env);
     else if(url.pathname==='/api/subscribe'&&req.method==='POST')res=await subscribe(req,env);
+    else if(url.pathname==='/api/items'&&req.method==='POST')res=await listItems(req,env);
     else if(url.pathname==='/api/test'&&req.method==='POST')res=await testPush(req,env);
     else if(url.pathname==='/health')res=json({ok:true,service:'mueen-reminders'});
     else res=json({ok:false,error:'not_found'},404);
