@@ -18,7 +18,7 @@
     try{
       if(!window.firebase){state('وضع محلي');return;}
       app=firebase.apps.length?firebase.app():firebase.initializeApp(firebaseConfig);
-      auth=firebase.auth(); db=firebase.database();
+      auth=firebase.auth(); db=firebase.database(); await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
       try{await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)}catch(e){console.warn('auth persistence',e)}
       try{messaging=firebase.messaging()}catch(e){}
       auth.onAuthStateChanged(async user=>{
@@ -85,6 +85,15 @@
       token:shortcutToken,
       endpoint:firebaseConfig.databaseURL+'/mueen/users/'+currentUser.uid+'/shortcutInbox.json'
     };
+  }
+  async function getAccountState(){
+    if(!currentUser)return {loggedIn:false,pushEnabled:false};
+    let pushEnabled=false;
+    try{
+      const s=await db.ref('mueen/users/'+currentUser.uid+'/profile/pushEnabled').once('value');
+      pushEnabled=!!s.val();
+    }catch(e){}
+    return {loggedIn:true,pushEnabled,user:currentUser};
   }
   async function syncItems(items){
     if(!started||!currentUser)return false;
