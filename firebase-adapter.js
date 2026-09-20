@@ -80,11 +80,17 @@
   }
   async function getShortcutSetup(){
     if(!currentUser)throw new Error('LOGIN_REQUIRED');
-    if(!shortcutToken)await ensureShortcutToken();
+    const idToken=await currentUser.getIdToken();
+    const res=await fetch(CLOUDFLARE_WORKER+'/api/link',{
+      method:'POST',
+      headers:{'authorization':'Bearer '+idToken}
+    });
+    if(!res.ok)throw new Error('SHORTCUT_LINK_FAILED');
+    const data=await res.json();
     return {
       uid:currentUser.uid,
-      token:shortcutToken,
-      endpoint:CLOUDFLARE_WORKER+'/api/command'
+      endpoint:data.endpoint,
+      token:''
     };
   }
   async function getAccountState(){
@@ -108,15 +114,17 @@
   }
   async function syncCloudItems(){
     if(!currentUser)return {ok:false,error:'LOGIN_REQUIRED'};
-    const token=getCloudToken();
-    if(!token)return {ok:false,error:'TOKEN_REQUIRED'};
+    const idToken=await currentUser.getIdToken();
     const res=await fetch(CLOUDFLARE_WORKER+'/api/items',{
       method:'POST',
-      headers:{'content-type':'application/json'},
-      body:JSON.stringify({token})
+      headers:{
+        'content-type':'application/json',
+        'authorization':'Bearer '+idToken
+      },
+      body:'{}'
     });
     if(!res.ok){
-      if(res.status===401)throw new Error('CLOUD_TOKEN_INVALID');
+      if(res.status===401)throw new Error('CLOUD_AUTH_FAILED');
       throw new Error('CLOUD_SYNC_FAILED');
     }
     const data=await res.json();
@@ -136,7 +144,6 @@
     if(onRemote)onRemote(merged);
     return {ok:true,count:incoming.length,added:changed};
   }
-
   async function syncItems(items){
     if(!started||!currentUser)return false;
     try{await db.ref('mueen/users/'+currentUser.uid+'/items').set(safe(items));return true}catch(e){console.error(e);return false}
@@ -244,5 +251,5 @@
     if(permission!=='granted')throw new Error('DENIED');
     return savePushToken(true);
   }
-  window.MueenFirebase={init,syncItems,login,register,logout,reset,enablePush,getShortcutSetup,rotateShortcutToken,syncCloudItems,setCloudToken,getCloudToken,get user(){return currentUser}};
+  window.MueenFirebase={init,syncItems,login,register,logout,reset,enablePush,getShortcutSetup,rotateShortcutToken,syncCloudItems,get user(){return currentUser}};
 })();
