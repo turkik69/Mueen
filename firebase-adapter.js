@@ -24,7 +24,7 @@
       try{messaging=firebase.messaging()}catch(e){}
       auth.onAuthStateChanged(async user=>{
         currentUser=user||null; updateAccountUI();
-        if(user){state('متصل بالسحابة',true); localStorage.setItem('mueen_logged_in','1'); await ensureShortcutToken(); await mergeInitial(localItems||[]); subscribeRemote(); await restorePushIfGranted();}
+        if(user){state('متصل بالسحابة',true); localStorage.setItem('mueen_logged_in','1'); await ensureShortcutToken(); await mergeInitial(localItems||[]); subscribeRemote(); try{await syncCloudItems()}catch(e){console.warn('cloud items sync',e)} await restorePushIfGranted();}
         else {localStorage.removeItem('mueen_logged_in');shortcutToken=''; if(shortcutRef){shortcutRef.off();shortcutRef=null} state('غير مسجل');}
       });
       started=true; updateAccountUI();
@@ -98,6 +98,45 @@
     }catch(e){}
     return {loggedIn:true,pushEnabled,pushProvider,user:currentUser};
   }
+
+  function getCloudToken(){return localStorage.getItem('mueen_cloud_token')||''}
+  function setCloudToken(token){
+    token=String(token||'').trim();
+    if(token)localStorage.setItem('mueen_cloud_token',token);
+    else localStorage.removeItem('mueen_cloud_token');
+    return !!token;
+  }
+  async function syncCloudItems(){
+    if(!currentUser)return {ok:false,error:'LOGIN_REQUIRED'};
+    const token=getCloudToken();
+    if(!token)return {ok:false,error:'TOKEN_REQUIRED'};
+    const res=await fetch(CLOUDFLARE_WORKER+'/api/items',{
+      method:'POST',
+      headers:{'content-type':'application/json'},
+      body:JSON.stringify({token})
+    });
+    if(!res.ok){
+      if(res.status===401)throw new Error('CLOUD_TOKEN_INVALID');
+      throw new Error('CLOUD_SYNC_FAILED');
+    }
+    const data=await res.json();
+    const incoming=Array.isArray(data.items)?data.items:[];
+    const ref=db.ref('mueen/users/'+currentUser.uid+'/items');
+    const snap=await ref.once('value');
+    const current=Array.isArray(snap.val())?snap.val():[];
+    const byId=new Map(current.filter(Boolean).map(x=>[String(x.id),x]));
+    let changed=false;
+    for(const x of incoming){
+      if(!x||!x.id)continue;
+      const key=String(x.id);
+      if(!byId.has(key)){byId.set(key,x);changed=true}
+    }
+    const merged=[...byId.values()];
+    if(changed)await ref.set(safe(merged));
+    if(onRemote)onRemote(merged);
+    return {ok:true,count:incoming.length,added:changed};
+  }
+
   async function syncItems(items){
     if(!started||!currentUser)return false;
     try{await db.ref('mueen/users/'+currentUser.uid+'/items').set(safe(items));return true}catch(e){console.error(e);return false}
@@ -205,5 +244,5 @@
     if(permission!=='granted')throw new Error('DENIED');
     return savePushToken(true);
   }
-  window.MueenFirebase={init,syncItems,login,register,logout,reset,enablePush,getShortcutSetup,rotateShortcutToken,get user(){return currentUser}};
+  window.MueenFirebase={init,syncItems,login,register,logout,reset,enablePush,getShortcutSetup,rotateShortcutToken,syncCloudItems,setCloudToken,getCloudToken,get user(){return currentUser}};
 })();
