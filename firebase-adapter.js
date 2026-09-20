@@ -24,7 +24,7 @@
       try{messaging=firebase.messaging()}catch(e){}
       auth.onAuthStateChanged(async user=>{
         currentUser=user||null; updateAccountUI();
-        if(user){state('متصل بالسحابة',true); localStorage.setItem('mueen_logged_in','1'); await ensureShortcutToken(); await mergeInitial(localItems||[]); subscribeRemote(); subscribeShortcutInbox(); await restorePushIfGranted();}
+        if(user){state('متصل بالسحابة',true); localStorage.setItem('mueen_logged_in','1'); await ensureShortcutToken(); await mergeInitial(localItems||[]); subscribeRemote(); await restorePushIfGranted();}
         else {localStorage.removeItem('mueen_logged_in');shortcutToken=''; if(shortcutRef){shortcutRef.off();shortcutRef=null} state('غير مسجل');}
       });
       started=true; updateAccountUI();
@@ -167,6 +167,7 @@
     if(!response.ok)throw new Error('PUSH_SUBSCRIBE_FAILED');
 
     localStorage.setItem('mueen_push_enabled','1');
+    try{await db.ref('mueen/users/'+currentUser.uid+'/profile').update({pushEnabled:true,pushEnabledAt:Date.now(),pushProvider:'cloudflare'})}catch(e){}
     updatePushUI(true);
     if(showTest){
       try{await ready.showNotification('مُعين',{body:'تم تفعيل إشعارات مُعين المجانية على هذا الجهاز.',icon:'./icon.svg',badge:'./icon.svg',tag:'mueen-push-test'})}catch(e){}
