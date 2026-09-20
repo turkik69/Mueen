@@ -5,7 +5,7 @@ const {getMessaging} = require('firebase-admin/messaging');
 
 initializeApp();
 
-const APP_URL = 'https://turkik69.github.io/mueen/';
+const APP_URL = 'https://turkik69.github.io/Mueen/';
 const APP_ICON = APP_URL + 'icon.svg';
 
 exports.mueenPushDispatch = onValueCreated({
