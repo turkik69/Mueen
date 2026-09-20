@@ -31,6 +31,35 @@ exports.mueenShortcutIngest = onValueCreated({ref:'/mueen/users/{uid}/shortcutIn
   await event.data.ref.remove();
 });
 
+
+function itemEventMs(x){
+  if(!x||!x.date||!x.time)return 0;
+  const v=Date.parse(x.date+'T'+x.time+':00+04:00');
+  return Number.isFinite(v)?v:0;
+}
+exports.mueenReminderScheduler = onSchedule({schedule:'every 1 minutes',timeZone:'Asia/Muscat',region:'europe-west1'},async()=>{
+  const db=getDatabase();
+  const snap=await db.ref('/mueen/users').once('value');
+  const users=snap.val()||{}, now=Date.now(), grace=5*60000;
+  for(const [uid,user] of Object.entries(users)){
+    const items=Array.isArray(user&&user.items)?user.items:[];
+    const sent=(user&&user.sentReminders)||{};
+    for(const x of items){
+      if(!x||x.done)continue;
+      const at=itemEventMs(x);if(!at)continue;
+      const offsets=Array.isArray(x.reminders)&&x.reminders.length?x.reminders:[0];
+      for(const raw of offsets){
+        const off=Number(raw)||0,due=at-off*60000,key=String(x.id||'item')+'_'+String(off)+'_'+String(at);
+        if(now<due||now-due>grace||sent[key])continue;
+        const body=off===0?x.title:(x.title+' — تذكير مسبق');
+        const q=db.ref('/mueen/users/'+uid+'/pushQueue').push();
+        await q.set({title:'مُعين',body,type:'reminder',itemId:x.id||'',createdAt:Date.now()});
+        await db.ref('/mueen/users/'+uid+'/sentReminders/'+key).set({queuedAt:Date.now(),itemId:x.id||'',offset:off});
+      }
+    }
+  }
+});
+
 exports.mueenPushDispatch = onValueCreated({
   ref: '/mueen/users/{uid}/pushQueue/{messageId}',
   region: 'europe-west1'
