@@ -70,6 +70,12 @@
       }catch(e){console.error('shortcut inbox',e)}
     });
   }
+  async function rotateShortcutToken(){
+    if(!currentUser)throw new Error('LOGIN_REQUIRED');
+    shortcutToken=makeSecret();
+    await db.ref('mueen/users/'+currentUser.uid+'/profile/shortcutToken').set(shortcutToken);
+    return shortcutToken;
+  }
   async function getShortcutSetup(){
     if(!currentUser)throw new Error('LOGIN_REQUIRED');
     if(!shortcutToken)await ensureShortcutToken();
@@ -132,5 +138,5 @@
     }catch(e){console.warn('test notification',e)}
     return token;
   }
-  window.MueenFirebase={init,syncItems,login,register,logout,reset,enablePush,getShortcutSetup,get user(){return currentUser}};
+  window.MueenFirebase={init,syncItems,login,register,logout,reset,enablePush,getShortcutSetup,rotateShortcutToken,get user(){return currentUser}};
 })();
