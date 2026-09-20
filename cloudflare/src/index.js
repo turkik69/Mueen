@@ -145,8 +145,7 @@ async function ingestCommand(req,env){
 }
 async function subscribe(req,env){
   const body=await req.json().catch(()=>null);
-  if(!body||body.token!==env.MUEEN_TOKEN)return json({ok:false,error:'unauthorized'},401);
-  const s=body.subscription;
+  const s=body&&body.subscription;
   if(!s||!s.endpoint||!s.keys?.p256dh||!s.keys?.auth)return json({ok:false,error:'bad_subscription'},400);
   const now=Date.now();
   await env.DB.prepare(
