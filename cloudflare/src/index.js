@@ -117,14 +117,70 @@ function reminderBody(item,offset){
   if(offset===2880)return item.title+' — متبقي يومان';
   return item.title+' — متبقي '+offset+' دقيقة';
 }
+
+const FIREBASE_API_KEY='AIzaSyDZ5MYN5z1FiSVe9LoYXmER4NUUkW6C0us';
+
+async function verifyFirebaseUser(req){
+  const auth=req.headers.get('authorization')||'';
+  const m=auth.match(/^Bearer\s+(.+)$/i);
+  if(!m)return null;
+  const idToken=m[1];
+  const r=await fetch('https://identitytoolkit.googleapis.com/v1/accounts:lookup?key='+FIREBASE_API_KEY,{
+    method:'POST',
+    headers:{'content-type':'application/json'},
+    body:JSON.stringify({idToken})
+  });
+  if(!r.ok)return null;
+  const data=await r.json().catch(()=>null);
+  const u=data&&data.users&&data.users[0];
+  if(!u||!u.localId)return null;
+  return {uid:u.localId,email:u.email||''};
+}
+
+async function ensureLinkTable(env){
+  await env.DB.prepare(
+    'CREATE TABLE IF NOT EXISTS shortcut_links (uid TEXT PRIMARY KEY, link_key TEXT UNIQUE NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)'
+  ).run();
+}
+
+function newLinkKey(){
+  const b=new Uint8Array(24);crypto.getRandomValues(b);
+  return Array.from(b,x=>x.toString(16).padStart(2,'0')).join('');
+}
+
+async function getOrCreateLink(req,env){
+  const user=await verifyFirebaseUser(req);
+  if(!user)return json({ok:false,error:'unauthorized'},401);
+  await ensureLinkTable(env);
+  let row=await env.DB.prepare('SELECT link_key FROM shortcut_links WHERE uid=?').bind(user.uid).first();
+  let key=row&&row.link_key;
+  if(!key){
+    key=newLinkKey();
+    const now=Date.now();
+    await env.DB.prepare('INSERT INTO shortcut_links(uid,link_key,created_at,updated_at) VALUES(?,?,?,?)').bind(user.uid,key,now,now).run();
+  }
+  const url=new URL(req.url);
+  return json({
+    ok:true,
+    endpoint:url.origin+'/api/command?key='+encodeURIComponent(key)
+  });
+}
+
+async function validCommandKey(req,env){
+  const url=new URL(req.url);
+  const key=url.searchParams.get('key')||'';
+  if(!key)return false;
+  await ensureLinkTable(env);
+  const row=await env.DB.prepare('SELECT uid FROM shortcut_links WHERE link_key=?').bind(key).first();
+  return !!row;
+}
+
 function configureVapid(env){
   webpush.setVapidDetails(env.VAPID_SUBJECT,env.VAPID_PUBLIC_KEY,env.VAPID_PRIVATE_KEY);
 }
 async function ingestCommand(req,env){
   const body=await req.json().catch(()=>null);
-  const url=new URL(req.url);
-  const key=url.searchParams.get('key')||req.headers.get('x-mueen-key')||'';
-  const valid=(env.MUEEN_LINK_KEY&&key===env.MUEEN_LINK_KEY)||(body&&env.MUEEN_TOKEN&&body.token===env.MUEEN_TOKEN);
+  const valid=await validCommandKey(req,env);
   if(!body||!valid)return json({ok:false,error:'unauthorized'},401);
   const text=String(body.text||'').trim();
   if(!text)return json({ok:false,error:'missing_text'},400);
@@ -159,11 +215,8 @@ function omanPartsFromMs(ms){
   };
 }
 async function listItems(req,env){
-  const body=await req.json().catch(()=>null);
-  const url=new URL(req.url);
-  const key=url.searchParams.get('key')||req.headers.get('x-mueen-key')||'';
-  const valid=(env.MUEEN_LINK_KEY&&key===env.MUEEN_LINK_KEY)||(body&&env.MUEEN_TOKEN&&body.token===env.MUEEN_TOKEN);
-  if(!valid)return json({ok:false,error:'unauthorized'},401);
+  const user=await verifyFirebaseUser(req);
+  if(!user)return json({ok:false,error:'unauthorized'},401);
 
   const rows=await env.DB.prepare(
     `SELECT i.id,i.text,i.type,i.title,i.event_at,i.created_at,
@@ -266,6 +319,7 @@ export default {
     const url=new URL(req.url);
     let res;
     if(url.pathname==='/api/config'&&req.method==='GET')res=json({ok:true,vapidPublicKey:env.VAPID_PUBLIC_KEY});
+    else if(url.pathname==='/api/link'&&req.method==='POST')res=await getOrCreateLink(req,env);
     else if(url.pathname==='/api/command'&&req.method==='POST')res=await ingestCommand(req,env);
     else if(url.pathname==='/api/subscribe'&&req.method==='POST')res=await subscribe(req,env);
     else if(url.pathname==='/api/items'&&req.method==='POST')res=await listItems(req,env);
