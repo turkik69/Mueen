@@ -9,12 +9,12 @@
     appId:"1:162393884721:web:d0d5768c827b997c322d10"
   };
   const VAPID="BNjMWTcjZfSpxlUl-Dstzh2n6LZqBCQRmvv-kXTYYESu_bjN2hE1IXkuyHu7jZIRXo3N2SkEp6N-yO77j64ku5g";
-  let app,auth,db,messaging,currentUser=null,onRemote=null,started=false;
+  let app,auth,db,messaging,currentUser=null,onRemote=null,onShortcut=null,started=false,shortcutRef=null,shortcutToken='';
   const qs=s=>document.querySelector(s);
   function state(text,ok=false){const e=qs('#cloudState');if(e){e.textContent=text;e.dataset.ok=ok?'1':'0'}}
   function safe(v){return JSON.parse(JSON.stringify(v||[]))}
-  async function init(localItems,remoteCb){
-    onRemote=remoteCb;
+  async function init(localItems,remoteCb,shortcutCb){
+    onRemote=remoteCb;onShortcut=shortcutCb;
     try{
       if(!window.firebase){state('وضع محلي');return;}
       app=firebase.apps.length?firebase.app():firebase.initializeApp(firebaseConfig);
@@ -22,8 +22,8 @@
       try{messaging=firebase.messaging()}catch(e){}
       auth.onAuthStateChanged(async user=>{
         currentUser=user||null; updateAccountUI();
-        if(user){state('متصل بالسحابة',true); await mergeInitial(localItems||[]); subscribeRemote();}
-        else state('غير مسجل');
+        if(user){state('متصل بالسحابة',true); await ensureShortcutToken(); await mergeInitial(localItems||[]); subscribeRemote(); subscribeShortcutInbox();}
+        else {shortcutToken=''; if(shortcutRef){shortcutRef.off();shortcutRef=null} state('غير مسجل');}
       });
       started=true; updateAccountUI();
     }catch(e){console.error(e);state('وضع محلي')}
@@ -42,6 +42,42 @@
     db.ref('mueen/users/'+currentUser.uid+'/items').on('value',s=>{
       const v=s.val(); if(Array.isArray(v)&&onRemote)onRemote(v);
     });
+  }
+  function makeSecret(){
+    try{
+      const b=new Uint8Array(24);crypto.getRandomValues(b);
+      return Array.from(b,x=>x.toString(16).padStart(2,'0')).join('');
+    }catch(e){return Date.now().toString(36)+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2)}
+  }
+  async function ensureShortcutToken(){
+    if(!currentUser)return '';
+    const ref=db.ref('mueen/users/'+currentUser.uid+'/profile/shortcutToken');
+    const s=await ref.once('value');
+    shortcutToken=s.val()||makeSecret();
+    if(!s.exists())await ref.set(shortcutToken);
+    return shortcutToken;
+  }
+  function subscribeShortcutInbox(){
+    if(!currentUser)return;
+    if(shortcutRef)shortcutRef.off();
+    shortcutRef=db.ref('mueen/users/'+currentUser.uid+'/shortcutInbox');
+    shortcutRef.on('child_added',async s=>{
+      const v=s.val()||{};
+      if(!v.text)return;
+      try{
+        if(onShortcut)await onShortcut(String(v.text),s.key);
+        await s.ref.remove();
+      }catch(e){console.error('shortcut inbox',e)}
+    });
+  }
+  async function getShortcutSetup(){
+    if(!currentUser)throw new Error('LOGIN_REQUIRED');
+    if(!shortcutToken)await ensureShortcutToken();
+    return {
+      uid:currentUser.uid,
+      token:shortcutToken,
+      endpoint:firebaseConfig.databaseURL+'/mueen/users/'+currentUser.uid+'/shortcutInbox.json'
+    };
   }
   async function syncItems(items){
     if(!started||!currentUser)return false;
@@ -78,5 +114,5 @@
     await db.ref('mueen/users/'+currentUser.uid+'/pushTokens/'+encodeURIComponent(token)).set({token,updatedAt:Date.now(),platform:navigator.platform||'web'});
     return token;
   }
-  window.MueenFirebase={init,syncItems,login,register,logout,reset,enablePush,get user(){return currentUser}};
+  window.MueenFirebase={init,syncItems,login,register,logout,reset,enablePush,getShortcutSetup,get user(){return currentUser}};
 })();
