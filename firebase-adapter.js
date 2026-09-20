@@ -105,13 +105,31 @@
   }
   async function enablePush(){
     if(!currentUser)throw new Error('LOGIN_REQUIRED');
+    if(!('Notification' in window))throw new Error('NO_NOTIFICATION');
+    if(!('serviceWorker' in navigator))throw new Error('NO_SW');
     if(!messaging)throw new Error('NO_MESSAGING');
     if(!VAPID)throw new Error('VAPID_REQUIRED');
     const permission=await Notification.requestPermission();
     if(permission!=='granted')throw new Error('DENIED');
-    const reg=await navigator.serviceWorker.register('./firebase-messaging-sw.js',{scope:'./push/'});
-    const token=await messaging.getToken({vapidKey:VAPID,serviceWorkerRegistration:reg});
-    await db.ref('mueen/users/'+currentUser.uid+'/pushTokens/'+encodeURIComponent(token)).set({token,updatedAt:Date.now(),platform:navigator.platform||'web'});
+    const reg=await navigator.serviceWorker.register('./sw.js',{scope:'./',updateViaCache:'none'});
+    await reg.update().catch(()=>{});
+    const ready=await navigator.serviceWorker.ready;
+    const token=await messaging.getToken({vapidKey:VAPID,serviceWorkerRegistration:ready});
+    if(!token)throw new Error('NO_TOKEN');
+    await db.ref('mueen/users/'+currentUser.uid+'/pushTokens/'+encodeURIComponent(token)).set({
+      token,
+      updatedAt:Date.now(),
+      platform:navigator.platform||'web',
+      userAgent:navigator.userAgent||''
+    });
+    try{
+      await ready.showNotification('مُعين',{
+        body:'تم تفعيل الإشعارات على هذا الجهاز بنجاح.',
+        icon:'./icon.svg',
+        badge:'./icon.svg',
+        tag:'mueen-push-test'
+      });
+    }catch(e){console.warn('test notification',e)}
     return token;
   }
   window.MueenFirebase={init,syncItems,login,register,logout,reset,enablePush,getShortcutSetup,get user(){return currentUser}};
