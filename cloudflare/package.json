@@ -1,0 +1,18 @@
+{
+  "name": "mueen-reminders-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:create": "wrangler d1 create mueen-reminders",
+    "db:init": "wrangler d1 execute mueen-reminders --remote --file=./schema.sql",
+    "vapid": "web-push generate-vapid-keys"
+  },
+  "dependencies": {
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
