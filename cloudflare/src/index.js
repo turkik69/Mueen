@@ -122,7 +122,10 @@ function configureVapid(env){
 }
 async function ingestCommand(req,env){
   const body=await req.json().catch(()=>null);
-  if(!body||body.token!==env.MUEEN_TOKEN)return json({ok:false,error:'unauthorized'},401);
+  const url=new URL(req.url);
+  const key=url.searchParams.get('key')||req.headers.get('x-mueen-key')||'';
+  const valid=(env.MUEEN_LINK_KEY&&key===env.MUEEN_LINK_KEY)||(body&&env.MUEEN_TOKEN&&body.token===env.MUEEN_TOKEN);
+  if(!body||!valid)return json({ok:false,error:'unauthorized'},401);
   const text=String(body.text||'').trim();
   if(!text)return json({ok:false,error:'missing_text'},400);
 
@@ -157,7 +160,10 @@ function omanPartsFromMs(ms){
 }
 async function listItems(req,env){
   const body=await req.json().catch(()=>null);
-  if(!body||body.token!==env.MUEEN_TOKEN)return json({ok:false,error:'unauthorized'},401);
+  const url=new URL(req.url);
+  const key=url.searchParams.get('key')||req.headers.get('x-mueen-key')||'';
+  const valid=(env.MUEEN_LINK_KEY&&key===env.MUEEN_LINK_KEY)||(body&&env.MUEEN_TOKEN&&body.token===env.MUEEN_TOKEN);
+  if(!valid)return json({ok:false,error:'unauthorized'},401);
 
   const rows=await env.DB.prepare(
     `SELECT i.id,i.text,i.type,i.title,i.event_at,i.created_at,
