@@ -6,7 +6,25 @@
       "users": {
         "$uid": {
           ".read": "auth != null && auth.uid === $uid",
-          ".write": "auth != null && auth.uid === $uid"
+          "items": {
+            ".write": "auth != null && auth.uid === $uid"
+          },
+          "profile": {
+            ".write": "auth != null && auth.uid === $uid"
+          },
+          "pushTokens": {
+            ".write": "auth != null && auth.uid === $uid"
+          },
+          "pushQueue": {
+            ".write": "auth != null && auth.uid === $uid"
+          },
+          "shortcutInbox": {
+            ".read": "auth != null && auth.uid === $uid",
+            "$commandId": {
+              ".write": "(auth != null && auth.uid === $uid) || (!data.exists() && newData.hasChildren(['text','token']) && newData.child('text').isString() && newData.child('text').val().length <= 1000 && newData.child('token').isString() && newData.child('token').val() === root.child('mueen').child('users').child($uid).child('profile').child('shortcutToken').val())",
+              ".validate": "newData.hasChildren(['text','token']) || !newData.exists()"
+            }
+          }
         }
       }
     }
