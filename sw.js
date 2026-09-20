@@ -1,4 +1,4 @@
-const CACHE='mueen-v21';
+const CACHE='mueen-v22';
 const ASSETS=['./','./index.html','./manifest.webmanifest','./icon.svg','./firebase-adapter.js'];
 
 self.addEventListener('install',e=>{
