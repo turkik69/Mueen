@@ -19,11 +19,12 @@
       if(!window.firebase){state('وضع محلي');return;}
       app=firebase.apps.length?firebase.app():firebase.initializeApp(firebaseConfig);
       auth=firebase.auth(); db=firebase.database();
+      try{await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)}catch(e){console.warn('auth persistence',e)}
       try{messaging=firebase.messaging()}catch(e){}
       auth.onAuthStateChanged(async user=>{
         currentUser=user||null; updateAccountUI();
-        if(user){state('متصل بالسحابة',true); await ensureShortcutToken(); await mergeInitial(localItems||[]); subscribeRemote(); subscribeShortcutInbox();}
-        else {shortcutToken=''; if(shortcutRef){shortcutRef.off();shortcutRef=null} state('غير مسجل');}
+        if(user){state('متصل بالسحابة',true); localStorage.setItem('mueen_logged_in','1'); await ensureShortcutToken(); await mergeInitial(localItems||[]); subscribeRemote(); subscribeShortcutInbox(); await restorePushIfGranted();}
+        else {localStorage.removeItem('mueen_logged_in');shortcutToken=''; if(shortcutRef){shortcutRef.off();shortcutRef=null} state('غير مسجل');}
       });
       started=true; updateAccountUI();
     }catch(e){console.error(e);state('وضع محلي')}
@@ -109,34 +110,51 @@
       if(b)b.textContent='◎'; if(loginBox)loginBox.hidden=false;if(userBox)userBox.hidden=true;
     }
   }
-  async function enablePush(){
+  async function savePushToken(showTest=false){
     if(!currentUser)throw new Error('LOGIN_REQUIRED');
     if(!('Notification' in window))throw new Error('NO_NOTIFICATION');
     if(!('serviceWorker' in navigator))throw new Error('NO_SW');
     if(!messaging)throw new Error('NO_MESSAGING');
     if(!VAPID)throw new Error('VAPID_REQUIRED');
-    const permission=await Notification.requestPermission();
-    if(permission!=='granted')throw new Error('DENIED');
     const reg=await navigator.serviceWorker.register('./sw.js',{scope:'./',updateViaCache:'none'});
     await reg.update().catch(()=>{});
     const ready=await navigator.serviceWorker.ready;
     const token=await messaging.getToken({vapidKey:VAPID,serviceWorkerRegistration:ready});
     if(!token)throw new Error('NO_TOKEN');
     await db.ref('mueen/users/'+currentUser.uid+'/pushTokens/'+encodeURIComponent(token)).set({
-      token,
-      updatedAt:Date.now(),
-      platform:navigator.platform||'web',
-      userAgent:navigator.userAgent||''
+      token,updatedAt:Date.now(),platform:navigator.platform||'web',userAgent:navigator.userAgent||''
     });
-    try{
-      await ready.showNotification('مُعين',{
-        body:'تم تفعيل الإشعارات على هذا الجهاز بنجاح.',
-        icon:'./icon.svg',
-        badge:'./icon.svg',
-        tag:'mueen-push-test'
-      });
-    }catch(e){console.warn('test notification',e)}
+    localStorage.setItem('mueen_push_enabled','1');
+    updatePushUI(true);
+    if(showTest){
+      try{await ready.showNotification('مُعين',{body:'تم تفعيل الإشعارات على هذا الجهاز بنجاح.',icon:'./icon.svg',badge:'./icon.svg',tag:'mueen-push-test'})}catch(e){}
+    }
     return token;
+  }
+  function updatePushUI(on){
+    const b=qs('#enablePush');
+    if(!b)return;
+    b.textContent=on?'الإشعارات مفعلة':'تفعيل الإشعارات';
+    b.disabled=!!on;
+  }
+  async function restorePushIfGranted(){
+    try{
+      const granted=('Notification' in window)&&Notification.permission==='granted';
+      if(granted){
+        updatePushUI(true);
+        await savePushToken(false);
+      }else{
+        localStorage.removeItem('mueen_push_enabled');
+        updatePushUI(false);
+      }
+    }catch(e){console.warn('restore push',e)}
+  }
+  async function enablePush(){
+    if(!currentUser)throw new Error('LOGIN_REQUIRED');
+    if(!('Notification' in window))throw new Error('NO_NOTIFICATION');
+    const permission=await Notification.requestPermission();
+    if(permission!=='granted')throw new Error('DENIED');
+    return savePushToken(true);
   }
   window.MueenFirebase={init,syncItems,login,register,logout,reset,enablePush,getShortcutSetup,rotateShortcutToken,get user(){return currentUser}};
 })();
