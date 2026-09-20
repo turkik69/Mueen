@@ -9,6 +9,7 @@
     appId:"1:162393884721:web:d0d5768c827b997c322d10"
   };
   const VAPID="BNjMWTcjZfSpxlUl-Dstzh2n6LZqBCQRmvv-kXTYYESu_bjN2hE1IXkuyHu7jZIRXo3N2SkEp6N-yO77j64ku5g";
+  const CLOUDFLARE_WORKER="https://mueen-reminders.turki-k69.workers.dev";
   let app,auth,db,messaging,currentUser=null,onRemote=null,onShortcut=null,started=false,shortcutRef=null,shortcutToken='';
   const qs=s=>document.querySelector(s);
   function state(text,ok=false){const e=qs('#cloudState');if(e){e.textContent=text;e.dataset.ok=ok?'1':'0'}}
@@ -83,7 +84,7 @@
     return {
       uid:currentUser.uid,
       token:shortcutToken,
-      endpoint:firebaseConfig.databaseURL+'/mueen/users/'+currentUser.uid+'/shortcutInbox.json'
+      endpoint:CLOUDFLARE_WORKER+'/api/command'
     };
   }
   async function getAccountState(){
@@ -119,26 +120,58 @@
       if(b)b.textContent='◎'; if(loginBox)loginBox.hidden=false;if(userBox)userBox.hidden=true;
     }
   }
+  function b64ToUint8Array(base64String){
+    const padding='='.repeat((4-base64String.length%4)%4);
+    const base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');
+    const raw=atob(base64);const out=new Uint8Array(raw.length);
+    for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);
+    return out;
+  }
   async function savePushToken(showTest=false){
     if(!currentUser)throw new Error('LOGIN_REQUIRED');
     if(!('Notification' in window))throw new Error('NO_NOTIFICATION');
     if(!('serviceWorker' in navigator))throw new Error('NO_SW');
-    if(!messaging)throw new Error('NO_MESSAGING');
-    if(!VAPID)throw new Error('VAPID_REQUIRED');
+
     const reg=await navigator.serviceWorker.register('./sw.js',{scope:'./',updateViaCache:'none'});
     await reg.update().catch(()=>{});
     const ready=await navigator.serviceWorker.ready;
-    const token=await messaging.getToken({vapidKey:VAPID,serviceWorkerRegistration:ready});
-    if(!token)throw new Error('NO_TOKEN');
-    await db.ref('mueen/users/'+currentUser.uid+'/pushTokens/'+encodeURIComponent(token)).set({
-      token,updatedAt:Date.now(),platform:navigator.platform||'web',userAgent:navigator.userAgent||''
+
+    const cfgRes=await fetch(CLOUDFLARE_WORKER+'/api/config',{cache:'no-store'});
+    if(!cfgRes.ok)throw new Error('PUSH_CONFIG_FAILED');
+    const cfg=await cfgRes.json();
+    if(!cfg.vapidPublicKey)throw new Error('VAPID_REQUIRED');
+
+    let sub=await ready.pushManager.getSubscription();
+    if(sub){
+      const currentKey=sub.options&&sub.options.applicationServerKey;
+      const desired=b64ToUint8Array(cfg.vapidPublicKey);
+      let same=!!currentKey&&currentKey.byteLength===desired.byteLength;
+      if(same){
+        const a=new Uint8Array(currentKey);
+        for(let i=0;i<a.length;i++){if(a[i]!==desired[i]){same=false;break}}
+      }
+      if(!same){await sub.unsubscribe().catch(()=>{});sub=null}
+    }
+    if(!sub){
+      sub=await ready.pushManager.subscribe({
+        userVisibleOnly:true,
+        applicationServerKey:b64ToUint8Array(cfg.vapidPublicKey)
+      });
+    }
+
+    const response=await fetch(CLOUDFLARE_WORKER+'/api/subscribe',{
+      method:'POST',
+      headers:{'content-type':'application/json'},
+      body:JSON.stringify({subscription:sub.toJSON()})
     });
+    if(!response.ok)throw new Error('PUSH_SUBSCRIBE_FAILED');
+
     localStorage.setItem('mueen_push_enabled','1');
     updatePushUI(true);
     if(showTest){
-      try{await ready.showNotification('مُعين',{body:'تم تفعيل الإشعارات على هذا الجهاز بنجاح.',icon:'./icon.svg',badge:'./icon.svg',tag:'mueen-push-test'})}catch(e){}
+      try{await ready.showNotification('مُعين',{body:'تم تفعيل إشعارات مُعين المجانية على هذا الجهاز.',icon:'./icon.svg',badge:'./icon.svg',tag:'mueen-push-test'})}catch(e){}
     }
-    return token;
+    return sub;
   }
   function updatePushUI(on){
     const b=qs('#enablePush');
