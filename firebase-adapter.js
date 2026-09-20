@@ -89,12 +89,14 @@
   }
   async function getAccountState(){
     if(!currentUser)return {loggedIn:false,pushEnabled:false};
-    let pushEnabled=false;
+    let pushEnabled=false,pushProvider='';
     try{
-      const s=await db.ref('mueen/users/'+currentUser.uid+'/profile/pushEnabled').once('value');
-      pushEnabled=!!s.val();
+      const s=await db.ref('mueen/users/'+currentUser.uid+'/profile').once('value');
+      const p=s.val()||{};
+      pushProvider=String(p.pushProvider||'');
+      pushEnabled=!!p.pushEnabled&&pushProvider==='cloudflare';
     }catch(e){}
-    return {loggedIn:true,pushEnabled,user:currentUser};
+    return {loggedIn:true,pushEnabled,pushProvider,user:currentUser};
   }
   async function syncItems(items){
     if(!started||!currentUser)return false;
@@ -184,13 +186,17 @@
     try{
       const granted=('Notification' in window)&&Notification.permission==='granted';
       if(granted){
-        updatePushUI(true);
+        updatePushUI(false);
         await savePushToken(false);
       }else{
         localStorage.removeItem('mueen_push_enabled');
         updatePushUI(false);
       }
-    }catch(e){console.warn('restore push',e)}
+    }catch(e){
+      console.warn('restore push',e);
+      localStorage.removeItem('mueen_push_enabled');
+      updatePushUI(false);
+    }
   }
   async function enablePush(){
     if(!currentUser)throw new Error('LOGIN_REQUIRED');
