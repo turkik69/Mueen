@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "mueen-reminders",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-20",
+  "triggers": {
+    "crons": ["* * * * *"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "mueen-reminders",
+      "database_id": "REPLACE_WITH_D1_DATABASE_ID"
+    }
+  ],
+  "vars": {
+    "VAPID_SUBJECT": "mailto:turki.k69@gmail.com"
+  }
+}
