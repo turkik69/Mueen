@@ -53,8 +53,8 @@ exports.mueenReminderScheduler = onSchedule({schedule:'every 1 minutes',timeZone
         if(now<due||now-due>grace||sent[key])continue;
         const body=off===0?x.title:(x.title+' — تذكير مسبق');
         const q=db.ref('/mueen/users/'+uid+'/pushQueue').push();
-        await q.set({title:'مُعين',body,type:'reminder',itemId:x.id||'',createdAt:Date.now()});
-        await db.ref('/mueen/users/'+uid+'/sentReminders/'+key).set({queuedAt:Date.now(),itemId:x.id||'',offset:off});
+        await q.set({title:'مُعين',body,type:'reminder',itemId:x.id||'',reminderKey:key,offset:off,createdAt:Date.now()});
+        await db.ref('/mueen/users/'+uid+'/queuedReminders/'+key).set({queuedAt:Date.now(),messageId:q.key});
       }
     }
   }
@@ -117,5 +117,9 @@ exports.mueenPushDispatch = onValueCreated({
   updates['/mueen/users/'+uid+'/pushQueue/'+messageId+'/processedAt'] = Date.now();
   updates['/mueen/users/'+uid+'/pushQueue/'+messageId+'/successCount'] = successCount;
   updates['/mueen/users/'+uid+'/pushQueue/'+messageId+'/failureCount'] = failureCount;
+  if(successCount && msg.reminderKey){
+    updates['/mueen/users/'+uid+'/sentReminders/'+msg.reminderKey] = {sentAt:Date.now(),itemId:String(msg.itemId||''),offset:Number(msg.offset)||0};
+    updates['/mueen/users/'+uid+'/queuedReminders/'+msg.reminderKey] = null;
+  }
   await db.ref().update(updates);
 });
