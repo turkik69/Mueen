@@ -1,3 +1,4 @@
+// verify-secret-trigger
 // deploy-trigger: 2026-09-22 v3.10
 import webpush from 'web-push';
 
