@@ -195,7 +195,10 @@ async function ingestCommand(req,env){
       .bind(randomId('rem'),id,uid,notifyAt,offset).run();
   }
   await sendPushForUid(env,uid,{title:'مُعين',body:'تم الحفظ: '+parsed.title,itemId:id,tag:'mueen-save-'+id,url:'https://turkik69.github.io/Mueen/'});
-  return json({ok:true,item:{id,...parsed}});
+  const spoken=parsed.eventAt
+    ? 'تم حفظ '+(parsed.type==='reminder'?'التذكير':parsed.type==='event'?'الموعد':parsed.type==='idea'?'الفكرة':'المهمة')+' وجدولته بنجاح'
+    : 'تم الحفظ في مُعين';
+  return json({ok:true,spoken,item:{id,...parsed}});
 }
 async function syncReminders(req,env){
   const user=await verifyFirebaseUser(req);if(!user)return json({ok:false,error:'unauthorized'},401);
@@ -300,7 +303,7 @@ export default {
       else if(url.pathname==='/api/items'&&req.method==='POST')res=await listItems(req,env);
       else if(url.pathname==='/api/reminders/sync'&&req.method==='POST')res=await syncReminders(req,env);
       else if(url.pathname==='/api/test-me'&&req.method==='POST')res=await testMe(req,env);
-      else if(url.pathname==='/health')res=json({ok:true,service:'mueen-reminders',version:'3.13'});
+      else if(url.pathname==='/health')res=json({ok:true,service:'mueen-reminders',version:'3.14'});
       else res=json({ok:false,error:'not_found'},404);
       return cors(res);
     }catch(e){
