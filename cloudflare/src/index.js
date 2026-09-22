@@ -1,4 +1,4 @@
-// deploy-trigger: 2026-09-22 v3.6
+// deploy-trigger: 2026-09-22 v3.7
 import webpush from 'web-push';
 
 const JSON_HEADERS={'content-type':'application/json; charset=utf-8'};
@@ -247,7 +247,9 @@ async function sendPushForUid(env,uid,payload){
 }
 async function testMe(req,env){
   const user=await verifyFirebaseUser(req);if(!user)return json({ok:false,error:'unauthorized'},401);
-  return json({ok:true,result:await sendPushForUid(env,user.uid,{title:'مُعين',body:'تم ربط الإشعارات الخارجية بنجاح. يمكنك إغلاق التطبيق.',tag:'mueen-server-test',url:'https://turkik69.github.io/Mueen/'})});
+  const result=await sendPushForUid(env,user.uid,{title:'مُعين',body:'اختبار خادم مُعين: الإشعارات الخارجية تعمل.',tag:'mueen-server-test',url:'https://turkik69.github.io/Mueen/'});
+  if(result.ok<1)return json({ok:false,error:'NO_ACTIVE_PUSH',result},409);
+  return json({ok:true,result});
 }
 async function processDue(env){
   await ensureSchema(env);const now=Date.now();
@@ -272,7 +274,7 @@ export default {
     else if(url.pathname==='/api/items'&&req.method==='POST')res=await listItems(req,env);
     else if(url.pathname==='/api/reminders/sync'&&req.method==='POST')res=await syncReminders(req,env);
     else if(url.pathname==='/api/test-me'&&req.method==='POST')res=await testMe(req,env);
-    else if(url.pathname==='/health')res=json({ok:true,service:'mueen-reminders',version:'3.6'});
+    else if(url.pathname==='/health')res=json({ok:true,service:'mueen-reminders',version:'3.7'});
     else res=json({ok:false,error:'not_found'},404);
     return cors(res);
   },
