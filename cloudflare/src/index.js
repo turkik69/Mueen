@@ -1,3 +1,4 @@
+// deploy-trigger: 2026-09-22 v3.6
 import webpush from 'web-push';
 
 const JSON_HEADERS={'content-type':'application/json; charset=utf-8'};
