@@ -113,7 +113,7 @@ function parseCommand(raw){
     eventAt=toOmanEpoch(date,time);
   }
   let reminders=parseOffsets(text);
-  if((type==='reminder'||type==='event')&&eventAt&&!reminders.length)reminders=[0];
+  if(eventAt&&!reminders.length)reminders=[0];
   const title=text
     .replace(/^(يا\s+مُ?عين[،,]?\s*)/,'')
     .replace(/^(ذكرني|سجل لي|سجل|دوّن|دون|أضف|اضف)\s*/,'')
@@ -204,7 +204,7 @@ async function syncReminders(req,env){
   await env.DB.prepare("DELETE FROM reminders WHERE uid=? AND sent=0 AND item_id IN (SELECT id FROM items WHERE uid=? AND source='app')").bind(user.uid,user.uid).run();
   await env.DB.prepare("DELETE FROM items WHERE uid=? AND source='app'").bind(user.uid).run();
   for(const it of items){
-    if(!it||!it.id||it.done||it.type==='idea'||!it.date||!it.time||!Array.isArray(it.reminders)||!it.reminders.length)continue;
+    if(!it||!it.id||it.done||!it.date||!it.time||!Array.isArray(it.reminders)||!it.reminders.length)continue;
     const eventAt=toOmanEpoch(it.date,it.time);if(!eventAt)continue;
     const iid='app_'+String(it.id);
     await env.DB.prepare('INSERT INTO items (id,uid,text,type,title,event_at,created_at,source) VALUES (?,?,?,?,?,?,?,?)')
@@ -300,7 +300,7 @@ export default {
       else if(url.pathname==='/api/items'&&req.method==='POST')res=await listItems(req,env);
       else if(url.pathname==='/api/reminders/sync'&&req.method==='POST')res=await syncReminders(req,env);
       else if(url.pathname==='/api/test-me'&&req.method==='POST')res=await testMe(req,env);
-      else if(url.pathname==='/health')res=json({ok:true,service:'mueen-reminders',version:'3.12'});
+      else if(url.pathname==='/health')res=json({ok:true,service:'mueen-reminders',version:'3.13'});
       else res=json({ok:false,error:'not_found'},404);
       return cors(res);
     }catch(e){
