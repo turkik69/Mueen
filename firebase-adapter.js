@@ -164,58 +164,93 @@
     if(!('serviceWorker' in navigator))throw new Error('NO_SW');
     if(!('PushManager' in window))throw new Error('NO_PUSH_MANAGER');
 
-    const reg=await navigator.serviceWorker.register('./sw.js',{scope:'./',updateViaCache:'none'});
-    await reg.update().catch(()=>{});
-    const ready=await navigator.serviceWorker.ready;
+    let reg,ready,cfg,sub,idToken,response;
+    try{
+      reg=await navigator.serviceWorker.register('./sw.js',{scope:'./',updateViaCache:'none'});
+      await reg.update().catch(()=>{});
+      ready=await navigator.serviceWorker.ready;
+    }catch(e){
+      console.error('PUSH_STAGE_SW',e);
+      throw new Error('PUSH_STAGE_SW: '+String(e&&e.message||e));
+    }
 
-    const cfgRes=await fetch(CLOUDFLARE_WORKER+'/api/config',{cache:'no-store'});
-    if(!cfgRes.ok)throw new Error('PUSH_CONFIG_FAILED');
-    const cfg=await cfgRes.json();
-    if(!cfg.vapidPublicKey)throw new Error('VAPID_REQUIRED');
+    try{
+      const cfgRes=await fetch(CLOUDFLARE_WORKER+'/api/config',{cache:'no-store',mode:'cors'});
+      if(!cfgRes.ok)throw new Error('HTTP_'+cfgRes.status);
+      cfg=await cfgRes.json();
+      if(!cfg.vapidPublicKey)throw new Error('VAPID_REQUIRED');
+    }catch(e){
+      console.error('PUSH_STAGE_CONFIG',e);
+      throw new Error('PUSH_STAGE_CONFIG: '+String(e&&e.message||e));
+    }
 
-    let sub=await ready.pushManager.getSubscription();
-    if(showTest&&sub){await sub.unsubscribe().catch(()=>{});sub=null}
-    if(sub){
-      const currentKey=sub.options&&sub.options.applicationServerKey;
-      const desired=b64ToUint8Array(cfg.vapidPublicKey);
-      let same=!!currentKey&&currentKey.byteLength===desired.byteLength;
-      if(same){
-        const a=new Uint8Array(currentKey);
-        for(let i=0;i<a.length;i++){if(a[i]!==desired[i]){same=false;break}}
+    try{
+      sub=await ready.pushManager.getSubscription();
+      if(showTest&&sub){
+        await sub.unsubscribe().catch(()=>{});
+        sub=null;
+        await new Promise(r=>setTimeout(r,350));
       }
-      if(!same){await sub.unsubscribe().catch(()=>{});sub=null}
-    }
-    if(!sub){
-      sub=await ready.pushManager.subscribe({
-        userVisibleOnly:true,
-        applicationServerKey:b64ToUint8Array(cfg.vapidPublicKey)
-      });
+      if(sub){
+        const currentKey=sub.options&&sub.options.applicationServerKey;
+        const desired=b64ToUint8Array(cfg.vapidPublicKey);
+        let same=!!currentKey&&currentKey.byteLength===desired.byteLength;
+        if(same){
+          const a=new Uint8Array(currentKey);
+          for(let i=0;i<a.length;i++){if(a[i]!==desired[i]){same=false;break}}
+        }
+        if(!same){
+          await sub.unsubscribe().catch(()=>{});
+          sub=null;
+          await new Promise(r=>setTimeout(r,350));
+        }
+      }
+      if(!sub){
+        const appKey=b64ToUint8Array(cfg.vapidPublicKey);
+        sub=await ready.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:appKey});
+      }
+    }catch(e){
+      console.error('PUSH_STAGE_SUBSCRIBE',e);
+      throw new Error('PUSH_STAGE_SUBSCRIBE: '+String(e&&e.message||e));
     }
 
-    const idToken=await currentUser.getIdToken();
-    const response=await fetch(CLOUDFLARE_WORKER+'/api/subscribe',{
-      method:'POST',
-      headers:{'content-type':'application/json','authorization':'Bearer '+idToken},
-      body:JSON.stringify({subscription:sub.toJSON()})
-    });
-    if(!response.ok){
-      const ed=await response.json().catch(()=>null);
-      throw new Error((ed&&ed.error)||('PUSH_SUBSCRIBE_FAILED_'+response.status));
+    try{
+      idToken=await currentUser.getIdToken(true);
+      response=await fetch(CLOUDFLARE_WORKER+'/api/subscribe',{
+        method:'POST',
+        mode:'cors',
+        headers:{'content-type':'application/json','authorization':'Bearer '+idToken},
+        body:JSON.stringify({subscription:sub.toJSON()})
+      });
+      if(!response.ok){
+        const ed=await response.json().catch(()=>null);
+        throw new Error((ed&&ed.error)||('HTTP_'+response.status));
+      }
+    }catch(e){
+      console.error('PUSH_STAGE_REGISTER',e);
+      throw new Error('PUSH_STAGE_REGISTER: '+String(e&&e.message||e));
     }
 
     localStorage.setItem('mueen_push_enabled','1');
     updatePushUI(true);
+
     if(showTest){
       try{
-        const idToken=await currentUser.getIdToken();
-        const tr=await fetch(CLOUDFLARE_WORKER+'/api/test-me',{method:'POST',headers:{'authorization':'Bearer '+idToken}});
+        const tr=await fetch(CLOUDFLARE_WORKER+'/api/test-me',{
+          method:'POST',
+          mode:'cors',
+          headers:{'authorization':'Bearer '+idToken}
+        });
         const td=await tr.json().catch(()=>null);
         if(!tr.ok){
           const detail=td&&td.result&&td.result.lastError?('_'+td.result.lastError):'';
-          throw new Error(((td&&td.error)||'SERVER_PUSH_TEST_FAILED')+detail);
+          throw new Error(((td&&td.error)||('HTTP_'+tr.status))+detail);
         }
         if(!td||!td.result||Number(td.result.ok)<1)throw new Error('NO_ACTIVE_PUSH');
-      }catch(e){console.warn('server push test',e);throw e}
+      }catch(e){
+        console.error('PUSH_STAGE_TEST',e);
+        throw new Error('PUSH_STAGE_TEST: '+String(e&&e.message||e));
+      }
     }
     return sub;
   }
