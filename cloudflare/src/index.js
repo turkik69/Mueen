@@ -198,6 +198,8 @@ async function ingestCommand(req,env){
   const spoken=parsed.eventAt
     ? 'تم حفظ '+(parsed.type==='reminder'?'التذكير':parsed.type==='event'?'الموعد':parsed.type==='idea'?'الفكرة':'المهمة')+' وجدولته بنجاح'
     : 'تم الحفظ في مُعين';
+  const wantsText=new URL(req.url).searchParams.get('format')==='text'||(req.headers.get('accept')||'').includes('text/plain');
+  if(wantsText)return new Response(spoken,{status:200,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
   return json({ok:true,spoken,item:{id,...parsed}});
 }
 async function syncReminders(req,env){
@@ -303,7 +305,7 @@ export default {
       else if(url.pathname==='/api/items'&&req.method==='POST')res=await listItems(req,env);
       else if(url.pathname==='/api/reminders/sync'&&req.method==='POST')res=await syncReminders(req,env);
       else if(url.pathname==='/api/test-me'&&req.method==='POST')res=await testMe(req,env);
-      else if(url.pathname==='/health')res=json({ok:true,service:'mueen-reminders',version:'3.14'});
+      else if(url.pathname==='/health')res=json({ok:true,service:'mueen-reminders',version:'3.15'});
       else res=json({ok:false,error:'not_found'},404);
       return cors(res);
     }catch(e){
