@@ -116,13 +116,15 @@ function parseCommand(raw){
   if(eventAt&&!reminders.length)reminders=[0];
   const title=text
     .replace(/^(يا\s+مُ?عين[،,]?\s*)/,'')
-    .replace(/^(ذكرني|سجل لي|سجل|دوّن|دون|أضف|اضف)\s*/,'')
-    .replace(/\s*و?\s*قبل(?:ها)?\s*(?:بيومين|بيوم|يومين|يوم|بساعتين|ساعتين|بساعة|ساعة|بنصف\s*ساعة|نصف\s*ساعة|بربع\s*ساعة|ربع\s*ساعة|\d+\s*دقائق?)/g,'')
+    .replace(/^(ذكرني|تذكير|نبّهني|نبهني|سجل لي|سجل|دوّن|دون|أضف|اضف)\s*/,'')
+    .replace(/\s*و?\s*قبل(?:ها)?\s*(?:بيومين|بيوم|يومين|يوم|بساعتين|ساعتين|بساعة|ساعة|بنصف\s*ساعة|نصف\s*ساعة|بربع\s*ساعة|ربع\s*ساعة|\d+\s*(?:دقيقة|دقيقه|دقائق))/g,'')
+    .replace(/\s*بعد\s*(?:\d+\s*(?:دقيقة|دقيقه|دقائق|ساعات?|أيام?|أسابيع?)|دقيقة|دقيقه|دقيقتين|دقيقتان|ساعة|ساعتين|نصف\s*ساعة|نص\s*ساعة|بكرة|غد|بعد\s*بكرة|بعد\s*غد)\s*$/,'')
+    .replace(/\s*(?:اليوم|بكرة|غد)\s*(?:الساعة|الساعه)?\s*\d{1,2}(?::\d{2})?\s*(?:ص|م|صباح(?:اً)?|مساء(?:ً)?|الليل|ليلاً)?\s*$/,'')
     .trim();
   return {type,title:title||text,date,time,reminders,eventAt};
 }
 function reminderBody(title,offset){
-  if(offset===0)return title;
+  if(offset===0)return title+' الآن';
   if(offset===15)return title+' — متبقي 15 دقيقة';
   if(offset===30)return title+' — متبقي نصف ساعة';
   if(offset===60)return title+' — متبقي ساعة';
@@ -283,10 +285,11 @@ async function testMe(req,env){
 }
 async function processDue(env){
   await ensureSchema(env);const now=Date.now();
-  const due=await env.DB.prepare('SELECT r.id,r.item_id,r.offset_minutes,i.title,i.uid FROM reminders r JOIN items i ON i.id=r.item_id WHERE r.sent=0 AND r.notify_at<=? AND i.uid IS NOT NULL ORDER BY r.notify_at ASC LIMIT 50').bind(now).all();
+  const due=await env.DB.prepare('SELECT r.id,r.item_id,r.offset_minutes,i.title,i.type,i.uid FROM reminders r JOIN items i ON i.id=r.item_id WHERE r.sent=0 AND r.notify_at<=? AND i.uid IS NOT NULL ORDER BY r.notify_at ASC LIMIT 50').bind(now).all();
   for(const r of due.results||[]){
     try{
-      const result=await sendPushForUid(env,r.uid,{title:'مُعين',body:reminderBody(r.title,Number(r.offset_minutes)||0),itemId:r.item_id,tag:'mueen-'+r.id,url:'https://turkik69.github.io/Mueen/?item='+encodeURIComponent(r.item_id)});
+      const pushTitle=r.type==='reminder'?'تذكير':r.type==='event'?'موعد':r.type==='idea'?'فكرة':'مهمة';
+      const result=await sendPushForUid(env,r.uid,{title:pushTitle,body:reminderBody(r.title,Number(r.offset_minutes)||0),itemId:r.item_id,tag:'mueen-'+r.id,url:'https://turkik69.github.io/Mueen/?item='+encodeURIComponent(r.item_id)});
       if(result.ok>0)await env.DB.prepare('UPDATE reminders SET sent=1,sent_at=?,attempts=attempts+1,last_error=NULL WHERE id=?').bind(Date.now(),r.id).run();
       else await env.DB.prepare('UPDATE reminders SET attempts=attempts+1,last_error=? WHERE id=?').bind('no_active_subscription',r.id).run();
     }catch(e){await env.DB.prepare('UPDATE reminders SET attempts=attempts+1,last_error=? WHERE id=?').bind(String(e?.message||e).slice(0,500),r.id).run()}
@@ -305,7 +308,7 @@ export default {
       else if(url.pathname==='/api/items'&&req.method==='POST')res=await listItems(req,env);
       else if(url.pathname==='/api/reminders/sync'&&req.method==='POST')res=await syncReminders(req,env);
       else if(url.pathname==='/api/test-me'&&req.method==='POST')res=await testMe(req,env);
-      else if(url.pathname==='/health')res=json({ok:true,service:'mueen-reminders',version:'3.15'});
+      else if(url.pathname==='/health')res=json({ok:true,service:'mueen-reminders',version:'3.16'});
       else res=json({ok:false,error:'not_found'},404);
       return cors(res);
     }catch(e){
