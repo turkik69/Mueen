@@ -8,28 +8,34 @@
     messagingSenderId:"162393884721",
     appId:"1:162393884721:web:d0d5768c827b997c322d10"
   };
-  const VAPID="BNjMWTcjZfSpxlUl-Dstzh2n6LZqBCQRmvv-kXTYYESu_bjN2hE1IXkuyHu7jZIRXo3N2SkEp6N-yO77j64ku5g";
   const CLOUDFLARE_WORKER="https://mueen-reminders.turki-k69.workers.dev";
-  let app,auth,db,messaging,currentUser=null,onRemote=null,onShortcut=null,started=false,shortcutRef=null,shortcutToken='';
+  let app,auth,db,currentUser=null,onRemote=null,onShortcut=null,started=false;
   const qs=s=>document.querySelector(s);
   function state(text,ok=false){const e=qs('#cloudState');if(e){e.textContent=text;e.dataset.ok=ok?'1':'0'}}
   function safe(v){return JSON.parse(JSON.stringify(v||[]))}
+
   async function init(localItems,remoteCb,shortcutCb){
     onRemote=remoteCb;onShortcut=shortcutCb;
     try{
       if(!window.firebase){state('وضع محلي');return;}
       app=firebase.apps.length?firebase.app():firebase.initializeApp(firebaseConfig);
-      auth=firebase.auth(); db=firebase.database(); await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+      auth=firebase.auth(); db=firebase.database();
       try{await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)}catch(e){console.warn('auth persistence',e)}
-      try{messaging=firebase.messaging()}catch(e){}
       auth.onAuthStateChanged(async user=>{
         currentUser=user||null; updateAccountUI();
-        if(user){state('متصل بالسحابة',true); localStorage.setItem('mueen_logged_in','1'); await ensureShortcutToken(); await mergeInitial(localItems||[]); subscribeRemote(); try{await syncCloudItems()}catch(e){console.warn('cloud items sync',e)} await restorePushIfGranted();}
-        else {localStorage.removeItem('mueen_logged_in');shortcutToken=''; if(shortcutRef){shortcutRef.off();shortcutRef=null} state('غير مسجل');}
+        if(user){
+          state('متصل بالسحابة',true); localStorage.setItem('mueen_logged_in','1');
+          await mergeInitial(localItems||[]); subscribeRemote();
+          try{await syncCloudItems()}catch(e){console.warn('cloud items sync',e)}
+          await restorePushIfGranted();
+        }else{
+          localStorage.removeItem('mueen_logged_in'); state('غير مسجل');
+        }
       });
       started=true; updateAccountUI();
     }catch(e){console.error(e);state('وضع محلي')}
   }
+
   async function mergeInitial(localItems){
     if(!currentUser)return;
     const ref=db.ref('mueen/users/'+currentUser.uid+'/items');
@@ -45,39 +51,7 @@
       const v=s.val(); if(Array.isArray(v)&&onRemote)onRemote(v);
     });
   }
-  function makeSecret(){
-    try{
-      const b=new Uint8Array(24);crypto.getRandomValues(b);
-      return Array.from(b,x=>x.toString(16).padStart(2,'0')).join('');
-    }catch(e){return Date.now().toString(36)+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2)}
-  }
-  async function ensureShortcutToken(){
-    if(!currentUser)return '';
-    const ref=db.ref('mueen/users/'+currentUser.uid+'/profile/shortcutToken');
-    const s=await ref.once('value');
-    shortcutToken=s.val()||makeSecret();
-    if(!s.exists())await ref.set(shortcutToken);
-    return shortcutToken;
-  }
-  function subscribeShortcutInbox(){
-    if(!currentUser)return;
-    if(shortcutRef)shortcutRef.off();
-    shortcutRef=db.ref('mueen/users/'+currentUser.uid+'/shortcutInbox');
-    shortcutRef.on('child_added',async s=>{
-      const v=s.val()||{};
-      if(!v.text)return;
-      try{
-        if(onShortcut)await onShortcut(String(v.text),s.key);
-        await s.ref.remove();
-      }catch(e){console.error('shortcut inbox',e)}
-    });
-  }
-  async function rotateShortcutToken(){
-    if(!currentUser)throw new Error('LOGIN_REQUIRED');
-    shortcutToken=makeSecret();
-    await db.ref('mueen/users/'+currentUser.uid+'/profile/shortcutToken').set(shortcutToken);
-    return shortcutToken;
-  }
+
   async function getShortcutSetup(){
     if(!currentUser)throw new Error('LOGIN_REQUIRED');
     const idToken=await currentUser.getIdToken();
@@ -87,40 +61,20 @@
     });
     if(!res.ok)throw new Error('SHORTCUT_LINK_FAILED');
     const data=await res.json();
-    return {
-      uid:currentUser.uid,
-      endpoint:data.endpoint,
-      token:''
-    };
-  }
-  async function getAccountState(){
-    if(!currentUser)return {loggedIn:false,pushEnabled:false};
-    let pushEnabled=false,pushProvider='';
-    try{
-      const s=await db.ref('mueen/users/'+currentUser.uid+'/profile').once('value');
-      const p=s.val()||{};
-      pushProvider=String(p.pushProvider||'');
-      pushEnabled=!!p.pushEnabled&&pushProvider==='cloudflare';
-    }catch(e){}
-    return {loggedIn:true,pushEnabled,pushProvider,user:currentUser};
+    return {uid:currentUser.uid,endpoint:data.endpoint,token:''};
   }
 
-  function getCloudToken(){return localStorage.getItem('mueen_cloud_token')||''}
-  function setCloudToken(token){
-    token=String(token||'').trim();
-    if(token)localStorage.setItem('mueen_cloud_token',token);
-    else localStorage.removeItem('mueen_cloud_token');
-    return !!token;
+  async function getAccountState(){
+    if(!currentUser)return {loggedIn:false,pushEnabled:false};
+    return {loggedIn:true,pushEnabled:localStorage.getItem('mueen_push_enabled')==='1',user:currentUser};
   }
+
   async function syncCloudItems(){
     if(!currentUser)return {ok:false,error:'LOGIN_REQUIRED'};
     const idToken=await currentUser.getIdToken();
     const res=await fetch(CLOUDFLARE_WORKER+'/api/items',{
       method:'POST',
-      headers:{
-        'content-type':'application/json',
-        'authorization':'Bearer '+idToken
-      },
+      headers:{'content-type':'application/json','authorization':'Bearer '+idToken},
       body:'{}'
     });
     if(!res.ok){
@@ -144,21 +98,31 @@
     if(onRemote)onRemote(merged);
     return {ok:true,count:incoming.length,added:changed};
   }
+
+  // يزامن تذكيرات التطبيق العادية مع جدولة الإرسال بالـ Worker — بدون هذا
+  // أي تذكير تسوّينه من داخل مُعين نفسه ما يوصله Push وقت إغلاق التطبيق.
+  // لا ننتظر نتيجتها من save() عشان ما نوقف الحفظ المحلي لو تأخر الـ Worker.
+  async function syncReminderSchedule(items){
+    if(!currentUser)return;
+    try{
+      const idToken=await currentUser.getIdToken();
+      await fetch(CLOUDFLARE_WORKER+'/api/reminders/sync',{
+        method:'POST',
+        headers:{'content-type':'application/json','authorization':'Bearer '+idToken},
+        body:JSON.stringify({items:safe(items)})
+      });
+    }catch(e){console.warn('reminder schedule sync',e)}
+  }
+
   async function syncItems(items){
     if(!started||!currentUser)return false;
     try{
-      const clean=safe(items);
-      await db.ref('mueen/users/'+currentUser.uid+'/items').set(clean);
-      const idToken=await currentUser.getIdToken();
-      const r=await fetch(CLOUDFLARE_WORKER+'/api/sync',{
-        method:'POST',
-        headers:{'content-type':'application/json','authorization':'Bearer '+idToken},
-        body:JSON.stringify({items:clean})
-      });
-      if(!r.ok)throw new Error('CLOUD_SCHEDULE_FAILED');
+      await db.ref('mueen/users/'+currentUser.uid+'/items').set(safe(items));
+      syncReminderSchedule(items);
       return true;
-    }catch(e){console.error('syncItems',e);return false}
+    }catch(e){console.error(e);return false}
   }
+
   async function login(email,password){return auth.signInWithEmailAndPassword(email,password)}
   async function register(name,email,password){
     const c=await auth.createUserWithEmailAndPassword(email,password);
@@ -168,6 +132,7 @@
   }
   async function logout(){if(auth)await auth.signOut()}
   async function reset(email){return auth.sendPasswordResetEmail(email)}
+
   function updateAccountUI(){
     const b=qs('#accountBtn'),name=qs('#accountName'),email=qs('#accountEmail'),loginBox=qs('#loginBox'),userBox=qs('#userBox');
     if(currentUser){
@@ -179,6 +144,7 @@
       if(b)b.textContent='◎'; if(loginBox)loginBox.hidden=false;if(userBox)userBox.hidden=true;
     }
   }
+
   function b64ToUint8Array(base64String){
     const padding='='.repeat((4-base64String.length%4)%4);
     const base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');
@@ -186,6 +152,7 @@
     for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);
     return out;
   }
+
   async function savePushToken(showTest=false){
     if(!currentUser)throw new Error('LOGIN_REQUIRED');
     if(!('Notification' in window))throw new Error('NO_NOTIFICATION');
@@ -227,38 +194,32 @@
     if(!response.ok)throw new Error('PUSH_SUBSCRIBE_FAILED');
 
     localStorage.setItem('mueen_push_enabled','1');
-    try{await db.ref('mueen/users/'+currentUser.uid+'/profile').update({pushEnabled:true,pushEnabledAt:Date.now(),pushProvider:'cloudflare'})}catch(e){}
     updatePushUI(true);
     if(showTest){
-      try{
-        const idToken=await currentUser.getIdToken();
-        await fetch(CLOUDFLARE_WORKER+'/api/test-me',{method:'POST',headers:{'authorization':'Bearer '+idToken}});
-      }catch(e){console.warn('server push test',e)}
+      try{await ready.showNotification('مُعين',{body:'تم تفعيل إشعارات مُعين على هذا الجهاز.',icon:'./icon.svg',badge:'./icon.svg',tag:'mueen-push-test'})}catch(e){}
     }
     return sub;
   }
+
   function updatePushUI(on){
     const b=qs('#enablePush');
     if(!b)return;
     b.textContent=on?'الإشعارات مفعلة':'تفعيل الإشعارات';
     b.disabled=!!on;
   }
+
   async function restorePushIfGranted(){
     try{
       const granted=('Notification' in window)&&Notification.permission==='granted';
-      if(granted){
-        updatePushUI(false);
-        await savePushToken(false);
-      }else{
-        localStorage.removeItem('mueen_push_enabled');
-        updatePushUI(false);
-      }
+      if(granted){updatePushUI(false);await savePushToken(false);}
+      else{localStorage.removeItem('mueen_push_enabled');updatePushUI(false);}
     }catch(e){
       console.warn('restore push',e);
       localStorage.removeItem('mueen_push_enabled');
       updatePushUI(false);
     }
   }
+
   async function enablePush(){
     if(!currentUser)throw new Error('LOGIN_REQUIRED');
     if(!('Notification' in window))throw new Error('NO_NOTIFICATION');
@@ -266,5 +227,6 @@
     if(permission!=='granted')throw new Error('DENIED');
     return savePushToken(true);
   }
-  window.MueenFirebase={init,syncItems,login,register,logout,reset,enablePush,getShortcutSetup,rotateShortcutToken,syncCloudItems,getAccountState,get user(){return currentUser}};
+
+  window.MueenFirebase={init,syncItems,login,register,logout,reset,enablePush,getShortcutSetup,getAccountState,syncCloudItems,get user(){return currentUser}};
 })();
