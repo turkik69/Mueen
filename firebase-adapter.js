@@ -146,7 +146,18 @@
   }
   async function syncItems(items){
     if(!started||!currentUser)return false;
-    try{await db.ref('mueen/users/'+currentUser.uid+'/items').set(safe(items));return true}catch(e){console.error(e);return false}
+    try{
+      const clean=safe(items);
+      await db.ref('mueen/users/'+currentUser.uid+'/items').set(clean);
+      const idToken=await currentUser.getIdToken();
+      const r=await fetch(CLOUDFLARE_WORKER+'/api/sync',{
+        method:'POST',
+        headers:{'content-type':'application/json','authorization':'Bearer '+idToken},
+        body:JSON.stringify({items:clean})
+      });
+      if(!r.ok)throw new Error('CLOUD_SCHEDULE_FAILED');
+      return true;
+    }catch(e){console.error('syncItems',e);return false}
   }
   async function login(email,password){return auth.signInWithEmailAndPassword(email,password)}
   async function register(name,email,password){
@@ -207,9 +218,10 @@
       });
     }
 
+    const idToken=await currentUser.getIdToken();
     const response=await fetch(CLOUDFLARE_WORKER+'/api/subscribe',{
       method:'POST',
-      headers:{'content-type':'application/json'},
+      headers:{'content-type':'application/json','authorization':'Bearer '+idToken},
       body:JSON.stringify({subscription:sub.toJSON()})
     });
     if(!response.ok)throw new Error('PUSH_SUBSCRIBE_FAILED');
@@ -218,7 +230,10 @@
     try{await db.ref('mueen/users/'+currentUser.uid+'/profile').update({pushEnabled:true,pushEnabledAt:Date.now(),pushProvider:'cloudflare'})}catch(e){}
     updatePushUI(true);
     if(showTest){
-      try{await ready.showNotification('مُعين',{body:'تم تفعيل إشعارات مُعين المجانية على هذا الجهاز.',icon:'./icon.svg',badge:'./icon.svg',tag:'mueen-push-test'})}catch(e){}
+      try{
+        const idToken=await currentUser.getIdToken();
+        await fetch(CLOUDFLARE_WORKER+'/api/test-me',{method:'POST',headers:{'authorization':'Bearer '+idToken}});
+      }catch(e){console.warn('server push test',e)}
     }
     return sub;
   }
@@ -251,5 +266,5 @@
     if(permission!=='granted')throw new Error('DENIED');
     return savePushToken(true);
   }
-  window.MueenFirebase={init,syncItems,login,register,logout,reset,enablePush,getShortcutSetup,rotateShortcutToken,syncCloudItems,get user(){return currentUser}};
+  window.MueenFirebase={init,syncItems,login,register,logout,reset,enablePush,getShortcutSetup,rotateShortcutToken,syncCloudItems,getAccountState,get user(){return currentUser}};
 })();
