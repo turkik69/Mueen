@@ -162,6 +162,7 @@
     if(!currentUser)throw new Error('LOGIN_REQUIRED');
     if(!('Notification' in window))throw new Error('NO_NOTIFICATION');
     if(!('serviceWorker' in navigator))throw new Error('NO_SW');
+    if(!('PushManager' in window))throw new Error('NO_PUSH_MANAGER');
 
     const reg=await navigator.serviceWorker.register('./sw.js',{scope:'./',updateViaCache:'none'});
     await reg.update().catch(()=>{});
@@ -173,6 +174,7 @@
     if(!cfg.vapidPublicKey)throw new Error('VAPID_REQUIRED');
 
     let sub=await ready.pushManager.getSubscription();
+    if(showTest&&sub){await sub.unsubscribe().catch(()=>{});sub=null}
     if(sub){
       const currentKey=sub.options&&sub.options.applicationServerKey;
       const desired=b64ToUint8Array(cfg.vapidPublicKey);
@@ -196,7 +198,10 @@
       headers:{'content-type':'application/json','authorization':'Bearer '+idToken},
       body:JSON.stringify({subscription:sub.toJSON()})
     });
-    if(!response.ok)throw new Error('PUSH_SUBSCRIBE_FAILED');
+    if(!response.ok){
+      const ed=await response.json().catch(()=>null);
+      throw new Error((ed&&ed.error)||('PUSH_SUBSCRIBE_FAILED_'+response.status));
+    }
 
     localStorage.setItem('mueen_push_enabled','1');
     updatePushUI(true);
@@ -205,7 +210,10 @@
         const idToken=await currentUser.getIdToken();
         const tr=await fetch(CLOUDFLARE_WORKER+'/api/test-me',{method:'POST',headers:{'authorization':'Bearer '+idToken}});
         const td=await tr.json().catch(()=>null);
-        if(!tr.ok)throw new Error((td&&td.error)||'SERVER_PUSH_TEST_FAILED');
+        if(!tr.ok){
+          const detail=td&&td.result&&td.result.lastError?('_'+td.result.lastError):'';
+          throw new Error(((td&&td.error)||'SERVER_PUSH_TEST_FAILED')+detail);
+        }
         if(!td||!td.result||Number(td.result.ok)<1)throw new Error('NO_ACTIVE_PUSH');
       }catch(e){console.warn('server push test',e);throw e}
     }
