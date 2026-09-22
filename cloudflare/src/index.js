@@ -1,4 +1,4 @@
-// deploy-trigger: 2026-09-22 v3.8
+// deploy-trigger: 2026-09-22 v3.10
 import webpush from 'web-push';
 
 const JSON_HEADERS={'content-type':'application/json; charset=utf-8'};
@@ -236,12 +236,27 @@ async function subscribe(req,env){
   return json({ok:true});
 }
 async function sendPushForUid(env,uid,payload){
-  configureVapid(env);await ensureSchema(env);
+  await ensureSchema(env);
+  let vapidError='';
+  try{
+    if(!env.VAPID_SUBJECT)throw new Error('VAPID_SUBJECT_MISSING');
+    if(!env.VAPID_PUBLIC_KEY)throw new Error('VAPID_PUBLIC_KEY_MISSING');
+    if(!env.VAPID_PRIVATE_KEY)throw new Error('VAPID_PRIVATE_KEY_MISSING');
+    configureVapid(env);
+  }catch(e){
+    vapidError=String(e?.message||e||'VAPID_CONFIG_FAILED').replace(/\s+/g,' ').slice(0,180);
+    return {ok:0,fail:0,count:0,lastStatus:0,lastError:'VAPID_CONFIG: '+vapidError};
+  }
+
   const subs=await env.DB.prepare('SELECT endpoint,p256dh,auth FROM subscriptions WHERE uid=?').bind(uid).all();
   let ok=0,fail=0,lastError='',lastStatus=0;
   for(const sub of subs.results||[]){
     try{
-      await webpush.sendNotification({endpoint:sub.endpoint,keys:{p256dh:sub.p256dh,auth:sub.auth}},JSON.stringify(payload),{TTL:3600,urgency:'high'});
+      await webpush.sendNotification(
+        {endpoint:sub.endpoint,keys:{p256dh:sub.p256dh,auth:sub.auth}},
+        JSON.stringify(payload),
+        {TTL:3600,urgency:'high'}
+      );
       ok++;
     }catch(e){
       fail++;
@@ -272,18 +287,22 @@ async function processDue(env){
 export default {
   async fetch(req,env){
     if(req.method==='OPTIONS')return cors(new Response(null,{status:204}));
-    await ensureSchema(env);
-    const url=new URL(req.url);let res;
-    if(url.pathname==='/api/config'&&req.method==='GET')res=json({ok:true,vapidPublicKey:env.VAPID_PUBLIC_KEY});
-    else if(url.pathname==='/api/link'&&req.method==='POST')res=await getOrCreateLink(req,env);
-    else if(url.pathname==='/api/command'&&(req.method==='POST'||req.method==='GET'))res=await ingestCommand(req,env);
-    else if(url.pathname==='/api/subscribe'&&req.method==='POST')res=await subscribe(req,env);
-    else if(url.pathname==='/api/items'&&req.method==='POST')res=await listItems(req,env);
-    else if(url.pathname==='/api/reminders/sync'&&req.method==='POST')res=await syncReminders(req,env);
-    else if(url.pathname==='/api/test-me'&&req.method==='POST')res=await testMe(req,env);
-    else if(url.pathname==='/health')res=json({ok:true,service:'mueen-reminders',version:'3.8'});
-    else res=json({ok:false,error:'not_found'},404);
-    return cors(res);
+    try{
+      await ensureSchema(env);
+      const url=new URL(req.url);let res;
+      if(url.pathname==='/api/config'&&req.method==='GET')res=json({ok:true,vapidPublicKey:env.VAPID_PUBLIC_KEY});
+      else if(url.pathname==='/api/link'&&req.method==='POST')res=await getOrCreateLink(req,env);
+      else if(url.pathname==='/api/command'&&(req.method==='POST'||req.method==='GET'))res=await ingestCommand(req,env);
+      else if(url.pathname==='/api/subscribe'&&req.method==='POST')res=await subscribe(req,env);
+      else if(url.pathname==='/api/items'&&req.method==='POST')res=await listItems(req,env);
+      else if(url.pathname==='/api/reminders/sync'&&req.method==='POST')res=await syncReminders(req,env);
+      else if(url.pathname==='/api/test-me'&&req.method==='POST')res=await testMe(req,env);
+      else if(url.pathname==='/health')res=json({ok:true,service:'mueen-reminders',version:'3.10'});
+      else res=json({ok:false,error:'not_found'},404);
+      return cors(res);
+    }catch(e){
+      return cors(json({ok:false,error:'WORKER_RUNTIME',detail:String(e?.message||e||'unknown').slice(0,180)},500));
+    }
   },
   async scheduled(_event,env,ctx){ctx.waitUntil(processDue(env))}
 };
