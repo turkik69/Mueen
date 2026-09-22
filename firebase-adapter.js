@@ -111,21 +111,27 @@
     if(!currentUser)return;
     try{
       const idToken=await currentUser.getIdToken();
-      await fetch(CLOUDFLARE_WORKER+'/api/reminders/sync',{
+      const res=await fetch(CLOUDFLARE_WORKER+'/api/reminders/sync',{
         method:'POST',
+        keepalive:true,
         headers:{'content-type':'application/json','authorization':'Bearer '+idToken},
         body:JSON.stringify({items:safe(items)})
       });
+      if(!res.ok){
+        const d=await res.json().catch(()=>null);
+        throw new Error((d&&d.error)||('REMINDER_SYNC_HTTP_'+res.status));
+      }
+      return await res.json().catch(()=>({ok:true}));
     }catch(e){console.warn('reminder schedule sync',e)}
   }
 
   async function syncItems(items){
     if(!started||!currentUser)return false;
     try{
+      await syncReminderSchedule(items);
       await db.ref('mueen/users/'+currentUser.uid+'/items').set(safe(items));
-      syncReminderSchedule(items);
       return true;
-    }catch(e){console.error(e);return false}
+    }catch(e){console.error('syncItems',e);throw e}
   }
 
   async function login(email,password){return auth.signInWithEmailAndPassword(email,password)}
