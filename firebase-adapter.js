@@ -196,7 +196,11 @@
     localStorage.setItem('mueen_push_enabled','1');
     updatePushUI(true);
     if(showTest){
-      try{await ready.showNotification('مُعين',{body:'تم تفعيل إشعارات مُعين على هذا الجهاز.',icon:'./icon.svg',badge:'./icon.svg',tag:'mueen-push-test'})}catch(e){}
+      try{
+        const idToken=await currentUser.getIdToken();
+        const tr=await fetch(CLOUDFLARE_WORKER+'/api/test-me',{method:'POST',headers:{'authorization':'Bearer '+idToken}});
+        if(!tr.ok)throw new Error('SERVER_PUSH_TEST_FAILED');
+      }catch(e){console.warn('server push test',e)}
     }
     return sub;
   }
