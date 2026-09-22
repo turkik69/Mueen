@@ -62,12 +62,14 @@ function spokenHour(text){
 function parseCommand(raw){
   const text=arabicDigits(raw),p=omanDateParts(),base=isoDate(p.y,p.m,p.d);
   let type='task';
-  if(/فكر|دوّن|دون|ملاحظة|ملاحظه/.test(text))type='idea';
+  if(/ذكرني|تذكير|نبّه|نبه/.test(text))type='reminder';
   else if(/موعد|اجتماع|مناسبة|زيارة|عندي/.test(text))type='event';
-  else if(/ذكرني|تذكير|نبّه|نبه/.test(text))type='reminder';
+  else if(/فكر|دوّن|دون|ملاحظة|ملاحظه/.test(text))type='idea';
 
   let relativeMs=null,m;
-  if((m=text.match(/بعد\s*(\d+)\s*دقائق?/)))relativeMs=+m[1]*60000;
+  if((m=text.match(/بعد\s*(\d+)\s*(?:دقيقة|دقيقه|دقائق)/)))relativeMs=+m[1]*60000;
+  else if(/بعد\s*(?:دقيقة|دقيقه)(?!\s*\d)/.test(text))relativeMs=60000;
+  else if(/بعد\s*(?:دقيقتين|دقيقتان)/.test(text))relativeMs=120000;
   else if(/بعد\s*(?:نصف\s*ساعة|نص\s*ساعة)/.test(text))relativeMs=30*60000;
   else if(/بعد\s*ساعتين/.test(text))relativeMs=7200000;
   else if((m=text.match(/بعد\s*(\d+)\s*ساعات?/)))relativeMs=+m[1]*3600000;
@@ -298,7 +300,7 @@ export default {
       else if(url.pathname==='/api/items'&&req.method==='POST')res=await listItems(req,env);
       else if(url.pathname==='/api/reminders/sync'&&req.method==='POST')res=await syncReminders(req,env);
       else if(url.pathname==='/api/test-me'&&req.method==='POST')res=await testMe(req,env);
-      else if(url.pathname==='/health')res=json({ok:true,service:'mueen-reminders',version:'3.10'});
+      else if(url.pathname==='/health')res=json({ok:true,service:'mueen-reminders',version:'3.12'});
       else res=json({ok:false,error:'not_found'},404);
       return cors(res);
     }catch(e){
