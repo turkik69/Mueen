@@ -27,6 +27,11 @@
           state('متصل بالسحابة',true); localStorage.setItem('mueen_logged_in','1');
           await mergeInitial(localItems||[]); subscribeRemote();
           try{await syncCloudItems()}catch(e){console.warn('cloud items sync',e)}
+          try{
+            const snap=await db.ref('mueen/users/'+user.uid+'/items').once('value');
+            const latest=Array.isArray(snap.val())?snap.val():[];
+            await syncReminderSchedule(latest);
+          }catch(e){console.warn('initial reminder schedule sync',e)}
           await restorePushIfGranted();
         }else{
           localStorage.removeItem('mueen_logged_in'); state('غير مسجل');
@@ -199,8 +204,10 @@
       try{
         const idToken=await currentUser.getIdToken();
         const tr=await fetch(CLOUDFLARE_WORKER+'/api/test-me',{method:'POST',headers:{'authorization':'Bearer '+idToken}});
-        if(!tr.ok)throw new Error('SERVER_PUSH_TEST_FAILED');
-      }catch(e){console.warn('server push test',e)}
+        const td=await tr.json().catch(()=>null);
+        if(!tr.ok)throw new Error((td&&td.error)||'SERVER_PUSH_TEST_FAILED');
+        if(!td||!td.result||Number(td.result.ok)<1)throw new Error('NO_ACTIVE_PUSH');
+      }catch(e){console.warn('server push test',e);throw e}
     }
     return sub;
   }
