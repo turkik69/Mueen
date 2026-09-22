@@ -17,6 +17,5 @@
   ],
   "vars": {
     "VAPID_SUBJECT": "mailto:turki.k69@gmail.com",
-    "VAPID_PUBLIC_KEY": "BJCMVdJqOMPvb0d2rUpjH_-QkNUTIOaf9zOg0jA2j3OzpJ-OmPFKWLfT4EYdTAqxbFWF05g1cxLHLkLY2Wgdb1k"
   }
 }
