@@ -1,4 +1,4 @@
-// deploy-trigger: 2026-09-22 v3.7
+// deploy-trigger: 2026-09-22 v3.8
 import webpush from 'web-push';
 
 const JSON_HEADERS={'content-type':'application/json; charset=utf-8'};
@@ -238,12 +238,19 @@ async function subscribe(req,env){
 async function sendPushForUid(env,uid,payload){
   configureVapid(env);await ensureSchema(env);
   const subs=await env.DB.prepare('SELECT endpoint,p256dh,auth FROM subscriptions WHERE uid=?').bind(uid).all();
-  let ok=0,fail=0;
-  for(const s of subs.results||[]){
-    try{await webpush.sendNotification({endpoint:s.endpoint,keys:{p256dh:s.p256dh,auth:s.auth}},JSON.stringify(payload),{TTL:3600,urgency:'high'});ok++}
-    catch(e){fail++;const status=e?.statusCode||0;if(status===404||status===410)await env.DB.prepare('DELETE FROM subscriptions WHERE endpoint=?').bind(s.endpoint).run()}
+  let ok=0,fail=0,lastError='',lastStatus=0;
+  for(const sub of subs.results||[]){
+    try{
+      await webpush.sendNotification({endpoint:sub.endpoint,keys:{p256dh:sub.p256dh,auth:sub.auth}},JSON.stringify(payload),{TTL:3600,urgency:'high'});
+      ok++;
+    }catch(e){
+      fail++;
+      lastStatus=e?.statusCode||0;
+      lastError=String(e?.body||e?.message||e||'push_failed').replace(/\s+/g,' ').slice(0,180);
+      if(lastStatus===404||lastStatus===410)await env.DB.prepare('DELETE FROM subscriptions WHERE endpoint=?').bind(sub.endpoint).run();
+    }
   }
-  return {ok,fail};
+  return {ok,fail,count:(subs.results||[]).length,lastStatus,lastError};
 }
 async function testMe(req,env){
   const user=await verifyFirebaseUser(req);if(!user)return json({ok:false,error:'unauthorized'},401);
@@ -274,7 +281,7 @@ export default {
     else if(url.pathname==='/api/items'&&req.method==='POST')res=await listItems(req,env);
     else if(url.pathname==='/api/reminders/sync'&&req.method==='POST')res=await syncReminders(req,env);
     else if(url.pathname==='/api/test-me'&&req.method==='POST')res=await testMe(req,env);
-    else if(url.pathname==='/health')res=json({ok:true,service:'mueen-reminders',version:'3.7'});
+    else if(url.pathname==='/health')res=json({ok:true,service:'mueen-reminders',version:'3.8'});
     else res=json({ok:false,error:'not_found'},404);
     return cors(res);
   },
