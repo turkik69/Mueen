@@ -1,0 +1,31 @@
+name: Publish Android preview download
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/android-preview.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: android-preview-publication
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download verified APK and publish testing release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SOURCE_RUN: '38897018781'
+          SOURCE_COMMIT: '90a67c67e3822d4db78865488f45767e9d9870b9'
+          RELEASE_TAG: android-preview-20261016
+        run: |
+          gh run download "$SOURCE_RUN" --name Mueen-Android-debug --dir download
+          test -s download/app-debug.apk
+          cp download/app-debug.apk Mueen-Android-v1.0.0.apk
+          sha256sum Mueen-Android-v1.0.0.apk > SHA256SUMS.txt
+          gh release create "$RELEASE_TAG" Mueen-Android-v1.0.0.apk SHA256SUMS.txt --target "$SOURCE_COMMIT" --prerelease --title "مُعين — تجربة Android 1.0.0" --notes "نسخة Android تجريبية بصيغة APK من البناء الذي اجتاز الاختبارات. تتطلب Android 7 أو أحدث. ليست نسخة Google Play. معرّف التطبيق com.turkik69.mueen. الحسابات الحالية مدعومة عبر Firebase؛ الإشعارات محلية للتذكيرات المتزامنة إلى الهاتف. الصوت وتسليم الإشعارات يحتاجان تجربة فعلية على الجهاز."
