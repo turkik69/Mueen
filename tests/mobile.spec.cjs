@@ -6,7 +6,8 @@ for(const path of ['/', '/www/']){
   await page.route(/googleapis\.com|firebaseio\.com|firebasedatabase\.app|workers\.dev/,r=>r.abort());
   if(path==='/')await page.route('https://www.gstatic.com/**',r=>r.fulfill({body:'',contentType:'text/javascript'}));
   await page.goto('http://127.0.0.1:4173'+path);
-  await expect(page.locator('#hello')).toBeVisible();
+  await expect(page.locator('#hello')).toHaveText('أهلًا بك في مُعين');
+  await expect(page.locator('#msgs')).not.toContainText('تركي');
   for(let i=0;i<3;i++){
    await page.locator('[data-add="idea"]').first().click();await expect(page.locator('#dlg')).toBeVisible();
    await page.locator('#dlg [aria-label="إغلاق"]').click();await expect(page.locator('#dlg')).not.toBeVisible();
@@ -21,6 +22,34 @@ for(const path of ['/', '/www/']){
   expect(errors).toEqual([]);
  });
 }
+test('new account name appears only after registration and disappears on logout',async({page})=>{
+ await page.route('https://www.gstatic.com/**',r=>r.fulfill({body:'',contentType:'text/javascript'}));
+ await page.route('**/firebase-adapter.js?v=45',r=>r.fulfill({contentType:'text/javascript',body:`window.MueenFirebase={
+   init:async(_items,_remote,_shortcut,onAccount)=>{window.accountChanged=onAccount;onAccount(null)},
+   register:async name=>{document.querySelector('#loginBox').hidden=true;document.querySelector('#userBox').hidden=false;window.accountChanged({displayName:name});return {}},
+   logout:async()=>{document.querySelector('#loginBox').hidden=false;document.querySelector('#userBox').hidden=true;window.accountChanged(null)},
+   get user(){return null}
+ };`}));
+ await page.goto('http://127.0.0.1:4173/');
+ await expect(page.locator('#hello')).toHaveText('أهلًا بك في مُعين');
+ await expect(page.locator('#msgs')).toContainText('مرحبًا. أنا مُعين');
+ await page.locator('#accountBtn').click();
+ await page.locator('[data-auth-tab="register"]').click();
+ await page.locator('#regEmail').fill('example@example.com');
+ await page.locator('#regPassword').fill('example123');
+ await page.locator('#registerSubmit').click();
+ await expect(page.locator('#hello')).toHaveText('أهلًا بك في مُعين');
+ await page.locator('#regName').fill('فاطمة');
+ await page.locator('#registerSubmit').click();
+ await expect(page.locator('#hello')).toContainText('فاطمة');
+ await expect(page.locator('#msgs')).toContainText('مرحبًا فاطمة');
+ await page.locator('#accountBtn').click();
+ await page.locator('#logoutBtn').click();
+ await expect(page.locator('#hello')).toHaveText('أهلًا بك في مُعين');
+ await expect(page.locator('#msgs')).toContainText('مرحبًا. أنا مُعين');
+ await page.reload();
+ await expect(page.locator('#hello')).toHaveText('أهلًا بك في مُعين');
+});
 test('native integration uses device notifications and speech, cancels on deletion',async({page})=>{
  await page.route('https://www.gstatic.com/**',r=>r.fulfill({body:'',contentType:'text/javascript'}));
  await page.addInitScript(()=>{

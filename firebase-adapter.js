@@ -9,23 +9,23 @@
     appId:"1:162393884721:web:d0d5768c827b997c322d10"
   };
   const CLOUDFLARE_WORKER="https://mueen-reminders.turki-k69.workers.dev";
-  let app,auth,db,currentUser=null,onRemote=null,onShortcut=null,started=false;
+  let app,auth,db,currentUser=null,onRemote=null,onShortcut=null,onAccount=null,started=false;
   const qs=s=>document.querySelector(s);
   function state(text,ok=false){const e=qs('#cloudState');if(e){e.textContent=text;e.dataset.ok=ok?'1':'0'}}
   function safe(v){return JSON.parse(JSON.stringify(v||[]))}
 
-  async function init(localItems,remoteCb,shortcutCb){
-    onRemote=remoteCb;onShortcut=shortcutCb;
+  async function init(localItems,remoteCb,shortcutCb,accountCb){
+    onRemote=remoteCb;onShortcut=shortcutCb;onAccount=accountCb;
     try{
       if(!window.firebase){state('وضع محلي');return;}
       app=firebase.apps.length?firebase.app():firebase.initializeApp(firebaseConfig);
       auth=firebase.auth(); db=firebase.database();
       try{await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)}catch(e){console.warn('auth persistence',e)}
       auth.onAuthStateChanged(async user=>{
-        currentUser=user||null; updateAccountUI();
+        currentUser=user||null; updateAccountUI();if(onAccount)onAccount(currentUser);
         if(user){
           state('متصل بالسحابة',true); localStorage.setItem('mueen_logged_in','1');
-          await mergeInitial(localItems||[]); subscribeRemote();
+          await mergeInitial(JSON.parse(localStorage.getItem('mueen_v1_items')||'[]')); subscribeRemote();
           try{await syncCloudItems()}catch(e){console.warn('cloud items sync',e)}
           try{
             const snap=await db.ref('mueen/users/'+user.uid+'/items').once('value');
@@ -138,7 +138,9 @@
   async function register(name,email,password){
     const c=await auth.createUserWithEmailAndPassword(email,password);
     if(name)await c.user.updateProfile({displayName:name});
+    currentUser=c.user;
     await db.ref('mueen/users/'+c.user.uid+'/profile').update({name:name||'',email,createdAt:Date.now()});
+    updateAccountUI();if(onAccount)onAccount(currentUser);
     return c;
   }
   async function logout(){if(window.MueenNative?.isNative)await MueenNative.clearReminders();if(auth)await auth.signOut()}
