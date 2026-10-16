@@ -1,5 +1,5 @@
 // verify-secret-trigger
-// deploy-trigger: 2026-09-22 v3.10
+// deploy-trigger: 2026-10-16 v3.20
 import webpush from 'web-push';
 
 const JSON_HEADERS={'content-type':'application/json; charset=utf-8'};
@@ -59,6 +59,68 @@ function spokenHour(text){
   const map={'الواحده':1,'واحد':1,'وحده':1,'الثانيه':2,'اثنين':2,'الثالثه':3,'ثلاثه':3,'الرابعه':4,'اربعه':4,'الخامسه':5,'خمسه':5,'السادسه':6,'سته':6,'السابعه':7,'سبعه':7,'الثامنه':8,'ثمانيه':8,'التاسعه':9,'تسعه':9,'العاشره':10,'عشره':10,'الحاديه عشره':11,'احد عشر':11,'الثانيه عشره':12,'اثنا عشر':12};
   return map[k]||null;
 }
+
+function smartReminderOffsets(eventAt,explicit=[]){
+  const now=Date.now(), mins=Math.max(0,Math.floor((eventAt-now)/60000));
+  const e=[...new Set((explicit||[]).map(Number).filter(Number.isFinite))];
+  if(e.length)return [...new Set([...e,0])].sort((a,b)=>b-a);
+  let pre=0;
+  if(mins>=180)pre=60;
+  else if(mins>=75)pre=30;
+  else if(mins>=30)pre=15;
+  else if(mins>=12)pre=5;
+  return pre?[pre,0]:[0];
+}
+function cleanSmartTitle(text){
+  return String(text||'')
+    .replace(/^(يا\s+مُ?عين[،,]?\s*)/,'')
+    .replace(/^(ذكرني|تذكير|نبّهني|نبهني|سجل لي|سجل|دوّن|دون|أضف|اضف)\s*/,'')
+    .replace(/\b(?:اليوم|بكرة|غد|بعد بكرة|بعد غد)\b/g,' ')
+    .replace(/(?:الساعة|الساعه)\s*\d{1,2}(?::\d{2})?\s*(?:ص|م|صباح(?:اً)?|مساء(?:ً)?|الليل|ليلاً)?/g,' ')
+    .replace(/بعد\s*(?:\d+\s*(?:دقيقة|دقيقه|دقائق|ساعات?|أيام?|أسابيع?)|دقيقة|دقيقه|دقيقتين|دقيقتان|ساعة|ساعتين|نصف\s*ساعة|نص\s*ساعة)/g,' ')
+    .replace(/\s*و?\s*قبل(?:ها)?\s*(?:بيومين|بيوم|يومين|يوم|بساعتين|ساعتين|بساعة|ساعة|بنصف\s*ساعة|نصف\s*ساعة|بربع\s*ساعة|ربع\s*ساعة|\d+\s*(?:دقيقة|دقيقه|دقائق))/g,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+function secondPersonTitle(title){
+  return String(title||'')
+    .replace(/\bعندي\b/g,'عندك')
+    .replace(/\bعلي\b/g,'عليك')
+    .replace(/\bموعدي\b/g,'موعدك')
+    .trim();
+}
+function arabicClock(ms){
+  const p=omanPartsFromMs(ms),[hh,mm]=p.time.split(':').map(Number);
+  let h=hh%12||12;
+  const suffix=hh<12?'صباحًا':'مساءً';
+  return 'الساعة '+h+(mm?':'+String(mm).padStart(2,'0'):'')+' '+suffix;
+}
+function smartWhen(raw,eventAt,now=Date.now()){
+  const ev=omanPartsFromMs(eventAt),cur=omanPartsFromMs(now);
+  const curDate=cur.date,evDate=ev.date;
+  let day='في الموعد';
+  if(evDate===curDate)day='اليوم';
+  else{
+    const tomorrow=addDays(curDate,1);
+    day=evDate===tomorrow?'غدًا':'بتاريخ '+evDate;
+  }
+  if(/بعد\s+صلاة\s+المغرب|بعد\s+المغرب/.test(raw))return day+' بعد صلاة المغرب';
+  if(/بعد\s+صلاة\s+العشاء|بعد\s+العشاء/.test(raw))return day+' بعد صلاة العشاء';
+  if(/بعد\s+صلاة\s+العصر|بعد\s+العصر/.test(raw))return day+' بعد صلاة العصر';
+  if(/بعد\s+صلاة\s+الظهر|بعد\s+الظهر/.test(raw))return day+' بعد صلاة الظهر';
+  if(/بعد\s+صلاة\s+الفجر|بعد\s+الفجر/.test(raw))return day+' بعد صلاة الفجر';
+  return day+' '+arabicClock(eventAt);
+}
+function smartReminderBody(raw,title,eventAt,offset){
+  const subject=secondPersonTitle(title);
+  const when=smartWhen(raw,eventAt,Date.now());
+  if(offset===0){
+    if(/^(اجتماع|الموعد|موعد|زيارة|مكالمة)/.test(subject))return 'حان وقت '+subject.replace(/^عندك\s+/,'');
+    return 'حان الوقت: '+subject;
+  }
+  return 'لا تنسَ، '+subject+' '+when;
+}
+
 function parseCommand(raw){
   const text=arabicDigits(raw),p=omanDateParts(),base=isoDate(p.y,p.m,p.d);
   let type='task';
@@ -107,20 +169,16 @@ function parseCommand(raw){
         time=String(h).padStart(2,'0')+':00';
       }
     }
-    if(/الظهر/.test(text))time='12:00';
-    if(/العصر/.test(text)&&!time)time='16:00';
-    if(/المغرب/.test(text)&&!time)time='18:00';
+    if(/الفجر/.test(text)&&!time)time='05:00';
+    if(/الظهر/.test(text)&&!time)time='12:15';
+    if(/العصر/.test(text)&&!time)time='15:45';
+    if(/المغرب/.test(text)&&!time)time='18:15';
+    if(/العشاء/.test(text)&&!time)time='19:30';
     eventAt=toOmanEpoch(date,time);
   }
-  let reminders=parseOffsets(text);
-  if(eventAt&&!reminders.length)reminders=[0];
-  const title=text
-    .replace(/^(يا\s+مُ?عين[،,]?\s*)/,'')
-    .replace(/^(ذكرني|تذكير|نبّهني|نبهني|سجل لي|سجل|دوّن|دون|أضف|اضف)\s*/,'')
-    .replace(/\s*و?\s*قبل(?:ها)?\s*(?:بيومين|بيوم|يومين|يوم|بساعتين|ساعتين|بساعة|ساعة|بنصف\s*ساعة|نصف\s*ساعة|بربع\s*ساعة|ربع\s*ساعة|\d+\s*(?:دقيقة|دقيقه|دقائق))/g,'')
-    .replace(/\s*بعد\s*(?:\d+\s*(?:دقيقة|دقيقه|دقائق|ساعات?|أيام?|أسابيع?)|دقيقة|دقيقه|دقيقتين|دقيقتان|ساعة|ساعتين|نصف\s*ساعة|نص\s*ساعة|بكرة|غد|بعد\s*بكرة|بعد\s*غد)\s*$/,'')
-    .replace(/\s*(?:اليوم|بكرة|غد)\s*(?:الساعة|الساعه)?\s*\d{1,2}(?::\d{2})?\s*(?:ص|م|صباح(?:اً)?|مساء(?:ً)?|الليل|ليلاً)?\s*$/,'')
-    .trim();
+  const explicitReminders=parseOffsets(text);
+  let reminders=eventAt?smartReminderOffsets(eventAt,explicitReminders):explicitReminders;
+  const title=cleanSmartTitle(text);
   return {type,title:title||text,date,time,reminders,eventAt};
 }
 function reminderBody(title,offset){
@@ -216,7 +274,9 @@ async function syncReminders(req,env){
     const iid='app_'+String(it.id);
     await env.DB.prepare('INSERT INTO items (id,uid,text,type,title,event_at,created_at,source) VALUES (?,?,?,?,?,?,?,?)')
       .bind(iid,user.uid,String(it.title||''),String(it.type||'task'),String(it.title||''),eventAt,Date.parse(it.created||'')||now,'app').run();
-    for(const off0 of it.reminders){
+    const supplied=(it.reminders||[]).map(Number).filter(Number.isFinite);
+    const smartOffsets=(supplied.length===1&&supplied[0]===0)?smartReminderOffsets(eventAt,[]):smartReminderOffsets(eventAt,supplied);
+    for(const off0 of smartOffsets){
       const off=Number(off0);if(!Number.isFinite(off))continue;
       const notifyAt=eventAt-off*60000;
       if(notifyAt>now-5*60000)await env.DB.prepare('INSERT INTO reminders (id,item_id,uid,notify_at,offset_minutes,sent) VALUES (?,?,?,?,?,0)')
@@ -285,11 +345,11 @@ async function testMe(req,env){
 }
 async function processDue(env){
   await ensureSchema(env);const now=Date.now();
-  const due=await env.DB.prepare('SELECT r.id,r.item_id,r.offset_minutes,i.title,i.type,i.uid FROM reminders r JOIN items i ON i.id=r.item_id WHERE r.sent=0 AND r.notify_at<=? AND i.uid IS NOT NULL ORDER BY r.notify_at ASC LIMIT 50').bind(now).all();
+  const due=await env.DB.prepare('SELECT r.id,r.item_id,r.offset_minutes,i.title,i.text,i.type,i.event_at,i.uid FROM reminders r JOIN items i ON i.id=r.item_id WHERE r.sent=0 AND r.notify_at<=? AND i.uid IS NOT NULL ORDER BY r.notify_at ASC LIMIT 50').bind(now).all();
   for(const r of due.results||[]){
     try{
-      const pushTitle=r.type==='reminder'?'تذكير':r.type==='event'?'موعد':r.type==='idea'?'فكرة':'مهمة';
-      const result=await sendPushForUid(env,r.uid,{title:pushTitle,body:reminderBody(r.title,Number(r.offset_minutes)||0),itemId:r.item_id,tag:'mueen-'+r.id,url:'https://turkik69.github.io/Mueen/?item='+encodeURIComponent(r.item_id)});
+      const offset=Number(r.offset_minutes)||0;
+      const result=await sendPushForUid(env,r.uid,{title:'تذكير',body:smartReminderBody(r.text||'',r.title,Number(r.event_at)||0,offset),itemId:r.item_id,tag:'mueen-'+r.id,url:'https://turkik69.github.io/Mueen/?item='+encodeURIComponent(r.item_id)});
       if(result.ok>0)await env.DB.prepare('UPDATE reminders SET sent=1,sent_at=?,attempts=attempts+1,last_error=NULL WHERE id=?').bind(Date.now(),r.id).run();
       else await env.DB.prepare('UPDATE reminders SET attempts=attempts+1,last_error=? WHERE id=?').bind('no_active_subscription',r.id).run();
     }catch(e){await env.DB.prepare('UPDATE reminders SET attempts=attempts+1,last_error=? WHERE id=?').bind(String(e?.message||e).slice(0,500),r.id).run()}
@@ -308,7 +368,7 @@ export default {
       else if(url.pathname==='/api/items'&&req.method==='POST')res=await listItems(req,env);
       else if(url.pathname==='/api/reminders/sync'&&req.method==='POST')res=await syncReminders(req,env);
       else if(url.pathname==='/api/test-me'&&req.method==='POST')res=await testMe(req,env);
-      else if(url.pathname==='/health')res=json({ok:true,service:'mueen-reminders',version:'3.16'});
+      else if(url.pathname==='/health')res=json({ok:true,service:'mueen-reminders',version:'3.20'});
       else res=json({ok:false,error:'not_found'},404);
       return cors(res);
     }catch(e){
