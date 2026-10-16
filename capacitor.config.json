@@ -1,0 +1,16 @@
+{
+  "appId": "com.turkik69.mueen",
+  "appName": "مُعين",
+  "webDir": "www",
+  "server": { "androidScheme": "https" },
+  "ios": { "contentInset": "never", "backgroundColor": "#F7F0EA" },
+  "android": { "backgroundColor": "#F7F0EA", "allowMixedContent": false },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_mueen",
+      "iconColor": "#B76E52",
+      "presentationOptions": ["sound", "banner", "list"]
+    },
+    "Keyboard": { "resize": "body", "resizeOnFullScreen": true }
+  }
+}

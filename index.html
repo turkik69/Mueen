@@ -12,6 +12,7 @@
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],K='mueen_v1_items',C='mueen_v1_chat';let items=JSON.parse(localStorage.getItem(K)||'[]'),chat=JSON.parse(localStorage.getItem(C)||'[]'),filter='all',cursor=new Date(),selected=null;const lab={task:'مهمة',event:'موعد',idea:'فكرة',reminder:'تذكير'},ico={task:'✓',event:'□',idea:'✦',reminder:'◷'},months=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];const iso=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-'),today=()=>iso(new Date()),esc=s=>(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])),uid=()=>Date.now()+Math.random().toString(16).slice(2);function toast(t){let e=$('#toast');e.textContent=t;e.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove('show'),2200)}async function save(){
   localStorage.setItem(K,JSON.stringify(items));
   render();
+  window.MueenNative?.syncReminders(items);
   if(window.MueenFirebase&&MueenFirebase.user){
     await MueenFirebase.syncItems(items);
   }
@@ -135,7 +136,20 @@ function dictationFallback(target,msg){
   $('#mic').classList.remove('listening');
   toast(msg||'التعرف الصوتي في Safari غير مستقر. استخدم ميكروفون لوحة المفاتيح وسيحفظ مُعين النص مباشرة');
 }
-function speech(target){
+async function speech(target){
+  if(window.MueenNative?.isNative){
+    const input=target==='chat'?$('#chat'):$('#quick');
+    if($('#mic').classList.contains('listening'))return;
+    $('#speech').textContent='أسمعك…';$('#mic').classList.add('listening');
+    try{
+      const text=await MueenNative.recognize();
+      if(text){if(input)input.value='';await natural(text,target==='chat')}
+      else toast('لم ألتقط كلامًا. حاول مرة أخرى أو استخدم الكتابة');
+    }catch(e){
+      toast(e.message==='SPEECH_DENIED'?'اسمح للميكروفون والتعرف على الكلام من إعدادات مُعين':'تعذر التقاط الصوت. حاول مرة أخرى أو استخدم إملاء لوحة المفاتيح');
+    }finally{$('#speech').textContent='جاهز';$('#mic').classList.remove('listening')}
+    return;
+  }
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){dictationFallback(target,'Safari لا يوفر التعرف الصوتي المباشر هنا. استخدم ميكروفون لوحة المفاتيح');return}
   let r=new SR(),captured='',hadResult=false,ended=false;
@@ -226,8 +240,9 @@ $('#notify').onclick=async()=>{
   try{
     if(window.MueenFirebase&&MueenFirebase.user){
       await MueenFirebase.enablePush();
-      toast('تم ربط إشعارات مُعين بالخادم وإرسال اختبار');
+      toast(window.MueenNative?.isNative?'تم تفعيل إشعارات الجهاز وإرسال اختبار':'تم ربط إشعارات مُعين بالخادم وإرسال اختبار');
     }else{
+      if(window.MueenNative?.isNative){await MueenNative.enableNotifications();return toast('تم تفعيل إشعارات الجهاز وإرسال اختبار')}
       if(!('Notification'in window))return toast('الإشعارات غير مدعومة هنا');
       let p=await Notification.requestPermission();
       toast(p==='granted'?'تم منح الإذن. سجّل الدخول لربط الإشعارات بالخادم':'لم يتم منح الإذن');
@@ -242,7 +257,7 @@ $('#notify').onclick=async()=>{
     else if(msg)toast('خطأ Push: '+msg.slice(0,70));
     else toast('تعذر تفعيل إشعارات الخادم');
   }
-};if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{});
+};if(!window.MueenNative?.isNative&&'serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{});
 function openAccount(){const d=$('#accountDlg');d.hidden=false;document.body.style.overflow='hidden'}
 function closeAccount(){const d=$('#accountDlg');d.hidden=true;document.body.style.overflow=''}
 function switchAuthTab(mode){const reg=mode==='register';$$('[data-auth-tab]').forEach(x=>x.classList.toggle('on',x.dataset.authTab===mode));$('#loginPane').hidden=reg;$('#registerPane').hidden=!reg}
@@ -291,7 +306,7 @@ function morningBrief(){let now=new Date(),h=now.getHours();if(h<6||h>11)return;
 render();setTimeout(morningBrief,700);setTimeout(()=>{if(!consumeSiriCommand())launchListenMode()},900);
 if(window.MueenFirebase)MueenFirebase.init(
   items,
-  remote=>{items=remote;localStorage.setItem(K,JSON.stringify(items));render();setTimeout(morningBrief,400);},
+  remote=>{items=remote;localStorage.setItem(K,JSON.stringify(items));render();window.MueenNative?.syncReminders(items);setTimeout(morningBrief,400);},
   async text=>{natural(text,true);toast('وصل أمر جديد من Siri إلى مُعين')}
 ).catch(()=>{});
 setTimeout(async()=>{

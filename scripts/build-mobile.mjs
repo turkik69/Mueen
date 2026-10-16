@@ -1,0 +1,13 @@
+import { build } from 'esbuild';
+import { readFile, writeFile, copyFile, mkdir, rm } from 'node:fs/promises';
+await rm('www', { recursive: true, force: true });
+await mkdir('www', { recursive: true });
+let html = await readFile('index.html', 'utf8');
+html = html.replace(/<script src="https:\/\/www\.gstatic\.com\/firebasejs\/[^\"]+"><\/script>/g, '');
+html = html.replace(/<script src="firebase-adapter\.js\?v=\d+"><\/script>/, '<script src="firebase-bundle.js"></script><script src="native-bridge.js"></script><script src="firebase-adapter.js"></script>');
+if (!html.includes('native-bridge.js') || html.includes('www.gstatic.com')) throw new Error('Unexpected HTML Firebase scripts');
+await writeFile('www/index.html', html);
+for (const file of ['firebase-adapter.js', 'icon.svg', 'manifest.webmanifest']) await copyFile(file, `www/${file}`);
+await build({ entryPoints: ['native/firebase.js'], outfile: 'www/firebase-bundle.js', bundle: true, format: 'iife', target: 'es2020', minify: true, legalComments: 'eof' });
+await build({ entryPoints: ['native/bridge.js'], outfile: 'www/native-bridge.js', bundle: true, format: 'iife', target: 'es2020', minify: true, legalComments: 'eof' });
+console.log('Built local mobile assets (no remote website URL, no service worker).');

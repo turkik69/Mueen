@@ -1,0 +1,88 @@
+name: Build Mueen mobile
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['mueen/**', 'cloudflare/**', '**.md']
+  pull_request:
+    paths-ignore: ['mueen/**', 'cloudflare/**', '**.md']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build:mobile
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:ui
+  android:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
+          log-accepted-android-sdk-licenses: false
+      - run: npm ci
+      - run: npm run build:mobile && npm run mobile:prepare && npx cap sync android
+      - uses: gradle/actions/setup-gradle@v4
+      - run: chmod +x gradlew && ./gradlew assembleDebug
+        working-directory: android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Mueen-Android-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+  ios:
+    needs: verify
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Select Xcode 26
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, subprocess
+          apps = [p for p in pathlib.Path('/Applications').glob('Xcode_26*.app') if re.fullmatch(r'Xcode_26(?:\.\d+)*\.app', p.name)]
+          if apps:
+              selected = max(apps, key=lambda p: tuple(map(int, re.findall(r'\d+', p.name))))
+              subprocess.run(['sudo','xcode-select','-s',str(selected/'Contents/Developer')],check=True)
+          subprocess.run(['xcodebuild','-version'],check=True)
+          PY
+      - run: npm ci
+      - run: npm run build:mobile && npm run mobile:prepare && npx cap sync ios
+      - name: Build iOS Simulator application (not an iPhone install)
+        run: xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/ios CODE_SIGNING_ALLOWED=NO build
+      - run: ditto -c -k --sequesterRsrc --keepParent build/ios/Build/Products/Debug-iphonesimulator/App.app Mueen-iOS-Simulator.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Mueen-iOS-Simulator
+          path: Mueen-iOS-Simulator.zip
+          if-no-files-found: error
+          retention-days: 30
