@@ -1,4 +1,4 @@
-name: Publish corrected Android preview
+name: Publish Android preview
 on:
   workflow_run:
     workflows: ['Build Mueen mobile']
@@ -22,6 +22,6 @@ jobs:
         run: |
           gh run download "$RUN_ID" --name Mueen-Android-debug --dir download
           test -s download/app-debug.apk
-          cp download/app-debug.apk Mueen-Android-v1.0.1.apk
-          sha256sum Mueen-Android-v1.0.1.apk > SHA256SUMS.txt
-          gh release create android-preview-20261016-v1.0.1 Mueen-Android-v1.0.1.apk SHA256SUMS.txt --target "$SOURCE_COMMIT" --prerelease --title "مُعين — تجربة Android 1.0.1" --notes "تصحيح ترحيب المستخدم الجديد: يظهر اسم صاحب الحساب بعد التسجيل أو الدخول، وتعود التحية العامة بعد الخروج. نسخة تجريبية لهواتف Android 7 أو أحدث. إذا ثبتّ النسخة التجريبية السابقة، زامن بياناتك بحسابك أولاً ثم احذفها قبل تثبيت هذه النسخة لأن مفتاح توقيع البناء التجريبي مختلف. بعد التثبيت سجل دخولك بالحساب نفسه لاستعادة بياناتك المتزامنة."
+          cp download/app-debug.apk Mueen-Android-v1.0.2.apk
+          sha256sum Mueen-Android-v1.0.2.apk > SHA256SUMS.txt
+          gh release create android-preview-20261016-v1.0.2 Mueen-Android-v1.0.2.apk SHA256SUMS.txt --target "$SOURCE_COMMIT" --prerelease --title "مُعين — تجربة Android 1.0.2" --notes "أوامر جديدة: «معين عين لي منبه الساعة 5 مساءً» لطلب ضبط المنبه في تطبيق الساعة الأصلي، و«معين اتصل في الاسم الحين» للبحث عن تطابق واحد واضح في جهات الاتصال وبدء الاتصال بعد منح الإذن. قد يعرض تطبيق الساعة شاشة تأكيد. عند تعدد أرقام الاسم لن يُجرى اتصال تلقائي. نسخة تجريبية لهواتف Android 7 أو أحدث. إذا ثبتّ نسخة سابقة، زامن بياناتك بحسابك أولاً ثم احذفها لأن مفتاح توقيع البناء التجريبي مختلف. البيانات المحلية غير المتزامنة ستُفقد عند الحذف."

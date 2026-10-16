@@ -115,6 +115,27 @@ function renderBrief(){
 }
 async function natural(t,fromChat=false){
   if(!t.trim())return;
+  const {parseDeviceCommand}=await import('./native/device-commands.mjs');
+  const device=parseDeviceCommand(t);
+  if(device){
+    let msg;
+    if(device.error)msg=device.error;
+    else if(window.MueenNative?.platform!=='android')msg='ضبط ساعة الهاتف والاتصال متاحان في تطبيق مُعين لأندرويد';
+    else try{
+      if(device.type==='alarm'){
+        await MueenNative.setAlarm(device);
+        msg='أرسلت المنبّه إلى تطبيق الساعة عند '+String(device.hour).padStart(2,'0')+':'+String(device.minute).padStart(2,'0')+'. راجع شاشة التأكيد إن ظهرت.';
+      }else{
+        await MueenNative.callContact(device);
+        msg='بدأ الاتصال بـ '+device.name;
+      }
+    }catch(e){
+      console.warn('Device action',e);
+      msg=({CONTACTS_DENIED:'اسمح لمُعين بالوصول إلى جهات الاتصال',PHONE_DENIED:'اسمح لمُعين بإجراء المكالمات',CONTACT_NOT_FOUND:'لم أجد جهة اتصال بهذا الاسم الكامل',AMBIGUOUS_CONTACT:'وجدت أكثر من رقم لهذا الاسم؛ افتح جهة الاتصال واختر الرقم المطلوب',CLOCK_UNAVAILABLE:'تعذر فتح تطبيق الساعة',PHONE_UNAVAILABLE:'تعذر بدء المكالمة'})[e.code]||'تعذر تنفيذ الأمر على الهاتف';
+    }
+    if(fromChat){chat.push({role:'user',text:t},{role:'assistant',text:msg});localStorage.setItem(C,JSON.stringify(chat));renderChat()}
+    toast(msg);return;
+  }
   let p=parse(t),x={id:uid(),...p,notes:'',priority:'normal',done:false,created:new Date().toISOString()};
   items.push(x);
   let extra=p.reminders&&p.reminders.length?' — '+p.reminders.map(reminderLabel).join(' و '):'';

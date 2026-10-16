@@ -68,3 +68,23 @@ test('native integration uses device notifications and speech, cancels on deleti
  calls=await page.evaluate(()=>window.nativeCalls);expect(calls.filter(c=>c.type==='sync').at(-1).items).toHaveLength(0);
  expect(await page.evaluate(async()=> (await navigator.serviceWorker.getRegistrations()).length)).toBe(0);
 });
+test('alarm and call commands invoke Android actions without creating tasks',async({page})=>{
+ await page.route('https://www.gstatic.com/**',r=>r.fulfill({body:'',contentType:'text/javascript'}));
+ await page.addInitScript(()=>{
+   window.deviceCalls=[];
+   window.MueenNative={isNative:true,platform:'android',
+     setAlarm:async value=>window.deviceCalls.push({type:'alarm',...value}),
+     callContact:async value=>window.deviceCalls.push({type:'call',...value})};
+ });
+ await page.goto('http://127.0.0.1:4173/');
+ await page.locator('#quick').fill('معين عين لي منبه الساعه 5 مساءً');
+ await page.locator('#send').click();
+ await expect(page.locator('#toast')).toContainText('17:00');
+ await page.locator('#quick').fill('معين اتصل في تركي اليحيائي الحين');
+ await page.locator('#send').click();
+ await expect(page.locator('#toast')).toContainText('بدأ الاتصال');
+ expect(await page.evaluate(()=>window.deviceCalls)).toEqual([
+   {type:'alarm',hour:17,minute:0}, {type:'call',name:'تركي اليحيائي'}
+ ]);
+ expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('mueen_v1_items')||'[]'))).toEqual([]);
+});

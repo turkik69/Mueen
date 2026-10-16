@@ -8,6 +8,8 @@ html = html.replace(/<script src="firebase-adapter\.js\?v=\d+"><\/script>/, '<sc
 if (!html.includes('native-bridge.js') || html.includes('www.gstatic.com')) throw new Error('Unexpected HTML Firebase scripts');
 await writeFile('www/index.html', html);
 for (const file of ['firebase-adapter.js', 'icon.svg', 'manifest.webmanifest']) await copyFile(file, `www/${file}`);
+await mkdir('www/native', { recursive: true });
+await copyFile('native/device-commands.mjs', 'www/native/device-commands.mjs');
 await build({ entryPoints: ['native/firebase.js'], outfile: 'www/firebase-bundle.js', bundle: true, format: 'iife', target: 'es2020', minify: true, legalComments: 'eof' });
 await build({ entryPoints: ['native/bridge.js'], outfile: 'www/native-bridge.js', bundle: true, format: 'iife', target: 'es2020', minify: true, legalComments: 'eof' });
 console.log('Built local mobile assets (no remote website URL, no service worker).');

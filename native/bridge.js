@@ -1,4 +1,4 @@
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { App } from '@capacitor/app';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Keyboard } from '@capacitor/keyboard';
@@ -6,6 +6,7 @@ import { SpeechRecognition } from '@capacitor-community/speech-recognition';
 import { createReminderScheduler } from './reminders.mjs';
 
 const isNative = Capacitor.isNativePlatform();
+const DeviceActions = registerPlugin('DeviceActions');
 const ENABLED = 'mueen_native_notifications_enabled';
 const readItems = () => JSON.parse(localStorage.getItem('mueen_v1_items') || '[]');
 const sync = createReminderScheduler(LocalNotifications);
@@ -82,7 +83,12 @@ async function recognizeIOS() {
     await SpeechRecognition.stop().catch(() => {});
   }
 }
-window.MueenNative = { isNative, syncReminders, enableNotifications, notificationState, clearReminders, recognize };
+window.MueenNative = {
+  isNative, syncReminders, enableNotifications, notificationState, clearReminders, recognize,
+  platform: Capacitor.getPlatform(),
+  setAlarm: ({ hour, minute }) => DeviceActions.setAlarm({ hour, minute }),
+  callContact: ({ name }) => DeviceActions.callContact({ name })
+};
 
 if (isNative) document.addEventListener('DOMContentLoaded', async () => {
   document.documentElement.classList.add('native-app');
