@@ -53,7 +53,7 @@
     if(!currentUser)return;
     db.ref('mueen/users/'+currentUser.uid+'/items').off();
     db.ref('mueen/users/'+currentUser.uid+'/items').on('value',s=>{
-      const v=s.val(); if(Array.isArray(v)&&onRemote)onRemote(v);
+      const v=s.val(); if((v===null||Array.isArray(v))&&onRemote)onRemote(v||[]);
     });
   }
 
@@ -71,7 +71,7 @@
 
   async function getAccountState(){
     if(!currentUser)return {loggedIn:false,pushEnabled:false};
-    return {loggedIn:true,pushEnabled:localStorage.getItem('mueen_push_enabled')==='1',user:currentUser};
+    return {loggedIn:true,pushEnabled:window.MueenNative?.isNative?await MueenNative.notificationState():localStorage.getItem('mueen_push_enabled')==='1',user:currentUser};
   }
 
   async function syncCloudItems(){
@@ -141,7 +141,7 @@
     await db.ref('mueen/users/'+c.user.uid+'/profile').update({name:name||'',email,createdAt:Date.now()});
     return c;
   }
-  async function logout(){if(auth)await auth.signOut()}
+  async function logout(){if(window.MueenNative?.isNative)await MueenNative.clearReminders();if(auth)await auth.signOut()}
   async function reset(email){return auth.sendPasswordResetEmail(email)}
 
   function updateAccountUI(){
@@ -269,6 +269,7 @@
   }
 
   async function restorePushIfGranted(){
+    if(window.MueenNative?.isNative){updatePushUI(await MueenNative.notificationState());return;}
     try{
       const granted=('Notification' in window)&&Notification.permission==='granted';
       if(granted){updatePushUI(false);await savePushToken(false);}
@@ -281,6 +282,7 @@
   }
 
   async function enablePush(){
+    if(window.MueenNative?.isNative)return MueenNative.enableNotifications();
     if(!currentUser)throw new Error('LOGIN_REQUIRED');
     if(!('Notification' in window))throw new Error('NO_NOTIFICATION');
     const permission=await Notification.requestPermission();

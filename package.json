@@ -1,0 +1,44 @@
+{
+  "name": "mueen",
+  "version": "1.0.0",
+  "description": "مُعين — تطبيق ويب وهاتف للمواعيد والتذكيرات",
+  "scripts": {
+    "build:mobile": "node scripts/build-mobile.mjs",
+    "mobile:sync": "npm run build:mobile && npm run mobile:prepare && npx cap sync",
+    "mobile:android": "npm run mobile:sync && npx cap open android",
+    "mobile:ios": "npm run mobile:sync && npx cap open ios",
+    "test": "node --test tests/*.test.mjs",
+    "test:ui": "playwright test",
+    "icons": "capacitor-assets generate --assetPath assets --android --ios",
+    "mobile:prepare": "node scripts/prepare-native.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/turkik69/Mueen.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/turkik69/Mueen/issues"
+  },
+  "homepage": "https://github.com/turkik69/Mueen#readme",
+  "dependencies": {
+    "@capacitor-community/speech-recognition": "7.0.1",
+    "@capacitor/android": "8.5.3",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/ios": "8.5.3",
+    "@capacitor/keyboard": "8.0.6",
+    "@capacitor/local-notifications": "8.3.1",
+    "firebase": "10.12.5"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "3.0.5",
+    "@capacitor/cli": "8.5.3",
+    "@playwright/test": "1.56.1",
+    "esbuild": "0.28.2",
+    "sharp": "0.34.5"
+  },
+  "private": true
+}

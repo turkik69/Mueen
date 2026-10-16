@@ -1,0 +1,23 @@
+node_modules/
+www/
+test-results/
+playwright-report/
+.DS_Store
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+.env
+.env.*
+android/.gradle/
+android/local.properties
+android/**/build/
+ios/App/App/public/
+ios/App/Pods/
+ios/App/build/
+
+# Generated reproducibly by npm run mobile:prepare
+assets/*.png
+android/**/*.png
+android/gradle/wrapper/gradle-wrapper.jar
+ios/**/*.png
